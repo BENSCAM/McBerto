@@ -1,7 +1,35 @@
 <?php
 
+use App\Livewire\Admin\UserManagement;
+use App\Livewire\Dashboard\Overview;
+use App\Livewire\Pos\CashRegisterClosing;
+use App\Livewire\Pos\Terminal;
+use App\Livewire\Reports\DailyReport;
 use Illuminate\Support\Facades\Route;
+use Livewire\Volt\Volt;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::view('profile', 'profile')
+    ->middleware(['auth'])
+    ->name('profile');
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::middleware('role:cashier,manager,owner')->group(function () {
+        Route::get('/pos', Terminal::class)->name('pos.terminal');
+        Route::get('/pos/cloture', CashRegisterClosing::class)->name('pos.closing');
+        Route::get('/reports/daily', DailyReport::class)->name('reports.daily');
+    });
+
+    Route::middleware('role:manager,owner')->group(function () {
+        Route::get('/dashboard', Overview::class)->name('dashboard');
+        Volt::route('/categories', 'categories.index')->name('categories.index');
+        Volt::route('/products', 'products.index')->name('products.index');
+        Volt::route('/expenses', 'expenses.index')->name('expenses.index');
+    });
+
+    Route::middleware('role:owner')->group(function () {
+        Route::get('/users', UserManagement::class)->name('users.index');
+    });
 });
+
+require __DIR__.'/auth.php';

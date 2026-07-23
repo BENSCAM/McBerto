@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Livewire\Pos;
+
+use App\Enums\PaymentMethod;
+use App\Models\CashRegisterClosing as CashRegisterClosingModel;
+use App\Models\Sale;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Component;
+
+class CashRegisterClosing extends Component
+{
+    public ?CashRegisterClosingModel $existingClosing = null;
+
+    public array $pendingTotals = [];
+
+    public int $pendingCount = 0;
+
+    public int $pendingTotal = 0;
+
+    public function mount(): void
+    {
+        $this->refreshState();
+    }
+
+    protected function refreshState(): void
+    {
+        $today = Carbon::today();
+
+        $this->existingClosing = CashRegisterClosingModel::whereDate('closing_date', $today)->first();
+
+        if ($this->existingClosing) {
+            $this->pendingCount = 0;
+            $this->pendingTotal = 0;
+            $this->pendingTotals = [];
+
+            return;
+        }
+
+        $pendingSales = Sale::whereNull('cash_register_closing_id')
+            ->whereDate('created_at', $today)
+            ->get();
+
+        $this->pendingCount = $pendingSales->count();
+        $this->pendingTotal = $pendingSales->sum('total_amount');
+
+        $this->pendingTotals = collect(PaymentMethod::cases())
+            ->mapWithKeys(fn (PaymentMethod $method) => [
+                $method->value => $pendingSales->where('payment_method', $method)->sum('total_amount'),
+            ])
+            ->all();
+    }
+
+    public function close(): void
+    {
+        if ($this->existingClosing) {
+            return;
+        }
+
+        $today = Carbon::today();
+
+        DB::transaction(function () use ($today) {
+            $pendingSales = Sale::whereNull('cash_register_closing_id')
+                ->whereDate('created_at', $today)
+                ->get();
+
+            $closing = CashRegisterClosingModel::create([
+                'closing_date' => $today,
+                'closed_by' => Auth::id(),
+                'total_cash' => $pendingSales->where('payment_method', PaymentMethod::Cash)->sum('total_amount'),
+                'total_orange_money' => $pendingSales->where('payment_method', PaymentMethod::OrangeMoney)->sum('total_amount'),
+                'total_mtn_momo' => $pendingSales->where('payment_method', PaymentMethod::MtnMomo)->sum('total_amount'),
+                'total_other' => $pendingSales->where('payment_method', PaymentMethod::Other)->sum('total_amount'),
+                'total_amount' => $pendingSales->sum('total_amount'),
+                'total_orders_count' => $pendingSales->count(),
+            ]);
+
+            Sale::whereNull('cash_register_closing_id')
+                ->whereDate('created_at', $today)
+                ->update(['cash_register_closing_id' => $closing->id]);
+        });
+
+        $this->refreshState();
+    }
+
+    #[Layout('layouts.app')]
+    public function render()
+    {
+        return view('livewire.pos.cash-register-closing');
+    }
+}
