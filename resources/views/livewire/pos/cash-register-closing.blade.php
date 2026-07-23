@@ -59,7 +59,7 @@
                 <button
                     wire:click="close"
                     wire:confirm="Confirmer la clôture de caisse du jour ? Cette action est définitive."
-                    class="w-full bg-indigo-600 text-white rounded-md py-2 font-medium"
+                    class="w-full bg-brand-600 text-white rounded-md py-2 font-medium"
                     @disabled($pendingCount === 0)
                 >
                     Clôturer la caisse

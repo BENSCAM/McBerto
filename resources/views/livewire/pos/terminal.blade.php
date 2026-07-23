@@ -15,7 +15,7 @@
                     @foreach ($this->categoriesWithProducts as $category)
                         <button
                             wire:click="selectCategory({{ $category->id }})"
-                            class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ $activeCategoryId === $category->id ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700' }}"
+                            class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ $activeCategoryId === $category->id ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700' }}"
                         >
                             {{ $category->name }}
                         </button>
@@ -28,8 +28,9 @@
                             @foreach ($category->products as $product)
                                 <button
                                     wire:click="addToCart({{ $product->id }})"
-                                    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-indigo-500 transition"
+                                    class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 transition"
                                 >
+                                    <div class="text-2xl mb-1">{{ $product->emoji }}</div>
                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ $product->name }}</div>
                                     <div class="text-sm text-gray-500 dark:text-gray-400">{{ number_format($product->price, 0, ',', ' ') }} FCFA</div>
                                 </button>
@@ -50,7 +51,9 @@
                         @foreach ($cart as $productId => $item)
                             <div class="flex items-center justify-between gap-2" wire:key="cart-{{ $productId }}">
                                 <div class="flex-1">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $item['name'] }}</div>
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        <span class="mr-1">{{ $item['emoji'] ?? '' }}</span>{{ $item['name'] }}
+                                    </div>
                                     <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item['price'], 0, ',', ' ') }} FCFA</div>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -68,7 +71,7 @@
                         <span>{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span>
                     </div>
 
-                    <button wire:click="openCheckout" class="mt-4 w-full bg-indigo-600 text-white rounded-md py-2 font-medium">
+                    <button wire:click="openCheckout" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
                         Encaisser
                     </button>
                 @endif
@@ -85,7 +88,7 @@
                         @foreach (\App\Enums\PaymentMethod::cases() as $method)
                             <button
                                 wire:click="completeSale('{{ $method->value }}')"
-                                class="w-full border border-gray-200 dark:border-gray-700 rounded-md py-2 text-gray-800 dark:text-gray-200 hover:border-indigo-500"
+                                class="w-full border border-gray-200 dark:border-gray-700 rounded-md py-2 text-gray-800 dark:text-gray-200 hover:border-brand-500"
                             >
                                 {{ $method->label() }}
                             </button>

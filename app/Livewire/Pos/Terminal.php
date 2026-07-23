@@ -17,7 +17,7 @@ class Terminal extends Component
 {
     public ?int $activeCategoryId = null;
 
-    /** @var array<int, array{name: string, price: int, quantity: int}> */
+    /** @var array<int, array{name: string, emoji: ?string, price: int, quantity: int}> */
     public array $cart = [];
 
     public bool $showCheckout = false;
@@ -57,6 +57,7 @@ class Terminal extends Component
         } else {
             $this->cart[$productId] = [
                 'name' => $product->name,
+                'emoji' => $product->emoji,
                 'price' => $product->price,
                 'quantity' => 1,
             ];

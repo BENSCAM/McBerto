@@ -37,4 +37,42 @@ class ProductManagementTest extends TestCase
             'category_id' => $category->id,
         ]);
     }
+
+    public function test_manager_can_create_a_product_with_an_emoji(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->set('name', 'Cheeseburger')
+            ->set('emoji', '🍔')
+            ->set('price', '1500')
+            ->set('category_id', (string) $category->id)
+            ->call('save');
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Cheeseburger',
+            'emoji' => '🍔',
+        ]);
+    }
+
+    public function test_emoji_is_optional(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->set('name', 'Sans emoji')
+            ->set('price', '1000')
+            ->set('category_id', (string) $category->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Sans emoji',
+            'emoji' => null,
+        ]);
+    }
 }

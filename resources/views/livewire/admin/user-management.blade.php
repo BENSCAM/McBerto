@@ -22,7 +22,7 @@
                 </div>
                 <div>
                     <x-input-label for="role" value="Rôle" />
-                    <select wire:model="role" id="role" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
+                    <select wire:model="role" id="role" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="cashier">Caissier</option>
                         <option value="manager">Gestionnaire</option>
                         <option value="owner">Propriétaire</option>
@@ -63,7 +63,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <button wire:click="toggleActive({{ $user->id }})" wire:confirm="Confirmer le changement de statut de ce compte ?" class="text-sm text-indigo-600 dark:text-indigo-400">
+                                <button wire:click="toggleActive({{ $user->id }})" wire:confirm="Confirmer le changement de statut de ce compte ?" class="text-sm text-brand-600 dark:text-brand-400">
                                     {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
                                 </button>
                             </td>

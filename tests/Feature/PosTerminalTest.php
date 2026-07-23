@@ -25,14 +25,14 @@ class PosTerminalTest extends TestCase
     {
         $cashier = User::factory()->cashier()->create();
         $category = Category::factory()->create();
-        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500, 'emoji' => '🍔']);
 
         Livewire::actingAs($cashier)
             ->test(\App\Livewire\Pos\Terminal::class)
             ->call('addToCart', $product->id)
             ->call('incrementQty', $product->id)
             ->assertSet('cart', [
-                $product->id => ['name' => $product->name, 'price' => 1500, 'quantity' => 2],
+                $product->id => ['name' => $product->name, 'emoji' => '🍔', 'price' => 1500, 'quantity' => 2],
             ])
             ->call('openCheckout')
             ->assertSet('showCheckout', true)

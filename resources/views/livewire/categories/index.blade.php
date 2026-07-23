@@ -95,7 +95,7 @@ new #[Layout('layouts.app')] class extends Component
                                 </button>
                             </td>
                             <td class="px-6 py-3 text-right space-x-3">
-                                <button wire:click="edit({{ $category->id }})" class="text-sm text-indigo-600 dark:text-indigo-400">Modifier</button>
+                                <button wire:click="edit({{ $category->id }})" class="text-sm text-brand-600 dark:text-brand-400">Modifier</button>
                                 <button wire:click="delete({{ $category->id }})" wire:confirm="Supprimer cette catégorie ?" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
                             </td>
                         </tr>

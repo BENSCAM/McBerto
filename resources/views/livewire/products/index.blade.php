@@ -11,6 +11,9 @@ new #[Layout('layouts.app')] class extends Component
     #[Validate('required|string|max:150')]
     public string $name = '';
 
+    #[Validate('nullable|string|max:8')]
+    public string $emoji = '';
+
     #[Validate('required|integer|min:0')]
     public string $price = '';
 
@@ -29,18 +32,29 @@ new #[Layout('layouts.app')] class extends Component
         return Category::where('is_active', true)->orderBy('name')->get();
     }
 
+    public function emojiSuggestions(): array
+    {
+        return ['🍔', '🍟', '🍗', '🍕', '🌮', '🥪', '🍿', '🥤', '☕', '🧃', '🍦', '🍩', '🍪', '🥗', '🧀', '🍳'];
+    }
+
+    public function pickEmoji(string $emoji): void
+    {
+        $this->emoji = $emoji;
+    }
+
     public function edit(int $id): void
     {
         $product = Product::findOrFail($id);
         $this->editingId = $product->id;
         $this->name = $product->name;
+        $this->emoji = $product->emoji ?? '';
         $this->price = (string) $product->price;
         $this->category_id = (string) $product->category_id;
     }
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'price', 'category_id']);
+        $this->reset(['editingId', 'name', 'emoji', 'price', 'category_id']);
     }
 
     public function save(): void
@@ -49,6 +63,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $data = [
             'name' => $this->name,
+            'emoji' => $this->emoji ?: null,
             'price' => (int) $this->price,
             'category_id' => (int) $this->category_id,
         ];
@@ -59,7 +74,7 @@ new #[Layout('layouts.app')] class extends Component
             Product::create($data);
         }
 
-        $this->reset(['editingId', 'name', 'price', 'category_id']);
+        $this->reset(['editingId', 'name', 'emoji', 'price', 'category_id']);
     }
 
     public function toggleActive(int $id): void
@@ -80,10 +95,22 @@ new #[Layout('layouts.app')] class extends Component
 
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
             <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                <div class="sm:col-span-2">
+                <div>
                     <x-input-label for="name" value="Nom du produit" />
                     <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="emoji" value="Emoji" />
+                    <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        @foreach ($this->emojiSuggestions() as $suggestion)
+                            <button type="button" wire:click="pickEmoji('{{ $suggestion }}')" class="text-lg leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 {{ $emoji === $suggestion ? 'ring-2 ring-brand-500' : '' }}">
+                                {{ $suggestion }}
+                            </button>
+                        @endforeach
+                    </div>
+                    <x-input-error :messages="$errors->get('emoji')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="price" value="Prix (FCFA)" />
@@ -92,7 +119,7 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
                 <div>
                     <x-input-label for="category_id" value="Catégorie" />
-                    <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
+                    <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="">-- Choisir --</option>
                         @foreach ($this->categoryOptions() as $category)
                             <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -123,7 +150,9 @@ new #[Layout('layouts.app')] class extends Component
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     @foreach ($this->products() as $product)
                         <tr wire:key="product-{{ $product->id }}">
-                            <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $product->name }}</td>
+                            <td class="px-6 py-3 text-gray-900 dark:text-gray-100">
+                                <span class="text-lg mr-1">{{ $product->emoji }}</span>{{ $product->name }}
+                            </td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $product->category?->name }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format($product->price, 0, ',', ' ') }} FCFA</td>
                             <td class="px-6 py-3">
@@ -132,7 +161,7 @@ new #[Layout('layouts.app')] class extends Component
                                 </button>
                             </td>
                             <td class="px-6 py-3 text-right space-x-3">
-                                <button wire:click="edit({{ $product->id }})" class="text-sm text-indigo-600 dark:text-indigo-400">Modifier</button>
+                                <button wire:click="edit({{ $product->id }})" class="text-sm text-brand-600 dark:text-brand-400">Modifier</button>
                                 <button wire:click="delete({{ $product->id }})" wire:confirm="Supprimer ce produit ?" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
                             </td>
                         </tr>

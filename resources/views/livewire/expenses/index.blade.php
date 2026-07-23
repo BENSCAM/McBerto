@@ -60,7 +60,7 @@ new #[Layout('layouts.app')] class extends Component
             <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                 <div>
                     <x-input-label for="category" value="Catégorie" />
-                    <select wire:model="category" id="category" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1 block w-full">
+                    <select wire:model="category" id="category" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="">-- Choisir --</option>
                         @foreach (\App\Models\Expense::CATEGORIES as $value => $label)
                             <option value="{{ $value }}">{{ $label }}</option>
