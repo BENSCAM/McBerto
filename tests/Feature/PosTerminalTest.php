@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -246,5 +247,68 @@ class PosTerminalTest extends TestCase
 
         $this->assertCount(1, $recent);
         $this->assertEquals(2000, $recent->first()->total_amount);
+    }
+
+    public function test_cashier_cannot_add_to_cart_when_register_is_closed_for_today(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+        CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->assertSet('cart', []);
+    }
+
+    public function test_cashier_cannot_complete_sale_when_register_is_closed_for_today(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+
+        $component = Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id);
+
+        CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
+
+        $component->call('completeSale', 'cash');
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_cashier_cannot_reopen_the_register(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('reopenRegister')
+            ->assertSet('todayClosing.id', fn ($id) => $id !== null);
+
+        $this->assertDatabaseCount('cash_register_closings', 1);
+    }
+
+    public function test_manager_can_reopen_the_register_from_the_pos_screen(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $closing = CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+
+        Livewire::actingAs($manager)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->assertSet('todayClosing.id', $closing->id)
+            ->call('reopenRegister')
+            ->assertSet('todayClosing', null)
+            ->call('addToCart', $product->id)
+            ->assertSet('cart', [
+                $product->id => ['name' => $product->name, 'emoji' => null, 'price' => 1000, 'quantity' => 1],
+            ]);
+
+        $this->assertDatabaseCount('cash_register_closings', 0);
     }
 }

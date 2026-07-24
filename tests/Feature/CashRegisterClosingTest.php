@@ -89,4 +89,61 @@ class CashRegisterClosingTest extends TestCase
 
         $this->assertDatabaseCount('cash_register_closings', 1);
     }
+
+    public function test_cashier_cannot_reopen_the_register(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        Sale::factory()->create(['user_id' => $cashier->id, 'total_amount' => 1000]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->set('countedCash', '1000')
+            ->call('close');
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->call('reopen')
+            ->assertSet('existingClosing.id', fn ($id) => $id !== null);
+
+        $this->assertDatabaseCount('cash_register_closings', 1);
+    }
+
+    public function test_manager_can_reopen_and_a_new_closing_covers_sales_made_before_and_after(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 1000]);
+
+        Livewire::actingAs($manager)
+            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->set('countedCash', '1000')
+            ->call('close');
+
+        $this->assertDatabaseCount('cash_register_closings', 1);
+
+        Livewire::actingAs($manager)
+            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->call('reopen')
+            ->assertSet('existingClosing', null)
+            ->assertSet('pendingTotal', 1000);
+
+        $this->assertDatabaseCount('cash_register_closings', 0);
+        $this->assertNull(Sale::first()->cash_register_closing_id);
+
+        // A late sale comes in after reopening.
+        Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 500]);
+
+        Livewire::actingAs($manager)
+            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->assertSet('pendingTotal', 1500)
+            ->set('countedCash', '1500')
+            ->call('close');
+
+        $this->assertDatabaseHas('cash_register_closings', [
+            'total_cash' => 1500,
+            'total_amount' => 1500,
+            'total_orders_count' => 2,
+        ]);
+    }
 }

@@ -109,6 +109,16 @@ class CashRegisterClosing extends Component
         $this->refreshState();
     }
 
+    public function reopen(): void
+    {
+        if (! Auth::user()->isAtLeastManager() || ! $this->existingClosing) {
+            return;
+        }
+
+        CashRegisterClosingModel::reopenToday();
+        $this->refreshState();
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {

@@ -3,6 +3,7 @@
 namespace App\Livewire\Pos;
 
 use App\Enums\PaymentMethod;
+use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Sale;
@@ -39,6 +40,22 @@ class Terminal extends Component
     public function mount(): void
     {
         $this->activeCategoryId = $this->categories()->first()?->id;
+    }
+
+    #[Computed]
+    public function todayClosing(): ?CashRegisterClosing
+    {
+        return CashRegisterClosing::whereDate('closing_date', now())->with('closedBy')->first();
+    }
+
+    public function reopenRegister(): void
+    {
+        if (! Auth::user()->isAtLeastManager()) {
+            return;
+        }
+
+        CashRegisterClosing::reopenToday();
+        unset($this->todayClosing);
     }
 
     #[Computed]
@@ -87,6 +104,10 @@ class Terminal extends Component
 
     public function addToCart(int $productId): void
     {
+        if ($this->todayClosing) {
+            return;
+        }
+
         $product = Product::findOrFail($productId);
 
         if (isset($this->cart[$productId])) {
@@ -227,7 +248,7 @@ class Terminal extends Component
 
     public function completeSale(string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null): void
     {
-        if (empty($this->cart)) {
+        if (empty($this->cart) || $this->todayClosing) {
             return;
         }
 

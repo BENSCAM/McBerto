@@ -5,20 +5,47 @@
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Caisse</h2>
 
-            <div class="relative w-full sm:w-64">
-                <input
-                    type="text"
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Rechercher un produit…"
-                    class="w-full pl-9 pr-3 py-2 text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
-                >
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔎</span>
-            </div>
+            @unless ($this->todayClosing)
+                <div class="relative w-full sm:w-64">
+                    <input
+                        type="text"
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Rechercher un produit…"
+                        class="w-full pl-9 pr-3 py-2 text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
+                    >
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔎</span>
+                </div>
+            @endunless
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
+        @if ($this->todayClosing)
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-10 text-center max-w-lg mx-auto">
+                <div class="text-4xl mb-3">🔒</div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Caisse clôturée pour aujourd'hui</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Clôturée par {{ $this->todayClosing->closedBy->name }} à {{ $this->todayClosing->created_at->format('H:i') }}.
+                </p>
+
+                @if (auth()->user()->isAtLeastManager())
+                    <button
+                        wire:click="reopenRegister"
+                        wire:confirm="Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd'hui."
+                        wire:loading.attr="disabled"
+                        wire:target="reopenRegister"
+                        class="mt-6 bg-brand-600 text-white rounded-md px-4 py-2 font-medium disabled:opacity-50"
+                    >Réouvrir la caisse</button>
+                @else
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-4">Contactez votre gestionnaire ou le propriétaire pour la réouvrir.</p>
+                @endif
+
+                <div class="mt-6">
+                    <a href="{{ route('pos.closing') }}" wire:navigate class="text-sm text-brand-600 dark:text-brand-400 underline">Voir le récapitulatif de clôture</a>
+                </div>
+            </div>
+        @else
+        <div class="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4 lg:h-[calc(100vh-15rem)]">
             <!-- Categories -->
-            <div class="min-w-0 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0">
+            <div class="min-w-0 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto lg:h-full lg:min-h-0 pb-1 lg:pb-0">
                 @foreach ($this->categoriesWithProducts as $category)
                     <button
                         wire:click="selectCategory({{ $category->id }})"
@@ -34,7 +61,7 @@
             </div>
 
             <!-- Products -->
-            <div class="min-w-0">
+            <div class="min-w-0 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
                 @if ($this->visibleProducts->isEmpty())
                     <div class="flex flex-col items-center justify-center text-center py-16 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
                         <span class="text-3xl mb-2">🔎</span>
@@ -66,98 +93,100 @@
                 @endif
             </div>
 
-            <!-- Cart -->
-            <div id="cart-section" class="min-w-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col h-fit lg:sticky lg:top-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-semibold text-gray-800 dark:text-gray-200">
-                        Panier
+            <!-- Cart + recent sales -->
+            <div class="min-w-0 flex flex-col gap-4 lg:h-full lg:min-h-0">
+                <div id="cart-section" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col lg:min-h-0 lg:max-h-[65%]">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800 dark:text-gray-200">
+                            Panier
+                            @if (! empty($cart))
+                                <span class="text-xs font-normal text-gray-400 dark:text-gray-500">({{ array_sum(array_column($cart, 'quantity')) }})</span>
+                            @endif
+                        </h3>
                         @if (! empty($cart))
-                            <span class="text-xs font-normal text-gray-400 dark:text-gray-500">({{ array_sum(array_column($cart, 'quantity')) }})</span>
+                            <button
+                                wire:click="clearCart"
+                                wire:confirm="Vider le panier ?"
+                                wire:loading.attr="disabled"
+                                wire:target="clearCart"
+                                class="text-xs text-red-500 dark:text-red-400 underline"
+                            >Vider</button>
                         @endif
-                    </h3>
-                    @if (! empty($cart))
-                        <button
-                            wire:click="clearCart"
-                            wire:confirm="Vider le panier ?"
-                            wire:loading.attr="disabled"
-                            wire:target="clearCart"
-                            class="text-xs text-red-500 dark:text-red-400 underline"
-                        >Vider</button>
+                    </div>
+
+                    @if (empty($cart))
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
+                    @else
+                        <div class="flex-1 min-h-[4rem] lg:min-h-0 overflow-y-auto space-y-3 mb-4 pr-1">
+                            @foreach ($cart as $productId => $item)
+                                <div class="flex items-center justify-between gap-2" wire:key="cart-{{ $productId }}">
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            <span class="mr-1">{{ $item['emoji'] ?? '' }}</span>{{ $item['name'] }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item['price'], 0, ',', ' ') }} FCFA</div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            wire:click="decrementQty({{ $productId }})"
+                                            wire:loading.attr="disabled"
+                                            wire:loading.class="opacity-50 cursor-wait"
+                                            wire:target="decrementQty({{ $productId }})"
+                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        >−</button>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="999"
+                                            value="{{ $item['quantity'] }}"
+                                            wire:change="setQuantity({{ $productId }}, $event.target.value)"
+                                            wire:loading.attr="disabled"
+                                            wire:target="setQuantity"
+                                            class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
+                                        >
+                                        <button
+                                            wire:click="incrementQty({{ $productId }})"
+                                            wire:loading.attr="disabled"
+                                            wire:loading.class="opacity-50 cursor-wait"
+                                            wire:target="incrementQty({{ $productId }})"
+                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        >+</button>
+                                    </div>
+                                    <button wire:click="removeFromCart({{ $productId }})" class="text-red-500 text-xs">✕</button>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                            <span>Total</span>
+                            <span>{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span>
+                        </div>
+
+                        <button wire:click="openCheckout" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
+                            Encaisser
+                        </button>
                     @endif
                 </div>
 
-                @if (empty($cart))
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
-                @else
-                    <div class="space-y-3 mb-4 max-h-[50vh] overflow-y-auto pr-1">
-                        @foreach ($cart as $productId => $item)
-                            <div class="flex items-center justify-between gap-2" wire:key="cart-{{ $productId }}">
-                                <div class="flex-1">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        <span class="mr-1">{{ $item['emoji'] ?? '' }}</span>{{ $item['name'] }}
-                                    </div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item['price'], 0, ',', ' ') }} FCFA</div>
+                <!-- Recent sales -->
+                <div class="flex-1 min-h-[10rem] lg:min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col">
+                    <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-3 shrink-0">Ventes récentes du jour</h3>
+
+                    @if ($this->recentSales->isEmpty())
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Aucune vente enregistrée aujourd'hui.</p>
+                    @else
+                        <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
+                            @foreach ($this->recentSales as $sale)
+                                <div class="flex items-center justify-between py-2 text-sm" wire:key="recent-sale-{{ $sale->id }}">
+                                    <span class="text-gray-500 dark:text-gray-400 w-12 shrink-0">{{ $sale->created_at->format('H:i') }}</span>
+                                    <span class="text-gray-700 dark:text-gray-300 flex-1 truncate">{{ $sale->user->name }}</span>
+                                    <span class="text-gray-900 dark:text-gray-100 font-medium shrink-0">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <button
-                                        wire:click="decrementQty({{ $productId }})"
-                                        wire:loading.attr="disabled"
-                                        wire:loading.class="opacity-50 cursor-wait"
-                                        wire:target="decrementQty({{ $productId }})"
-                                        class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                    >−</button>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="999"
-                                        value="{{ $item['quantity'] }}"
-                                        wire:change="setQuantity({{ $productId }}, $event.target.value)"
-                                        wire:loading.attr="disabled"
-                                        wire:target="setQuantity"
-                                        class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
-                                    >
-                                    <button
-                                        wire:click="incrementQty({{ $productId }})"
-                                        wire:loading.attr="disabled"
-                                        wire:loading.class="opacity-50 cursor-wait"
-                                        wire:target="incrementQty({{ $productId }})"
-                                        class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                    >+</button>
-                                </div>
-                                <button wire:click="removeFromCart({{ $productId }})" class="text-red-500 text-xs">✕</button>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
-                        <span>Total</span>
-                        <span>{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span>
-                    </div>
-
-                    <button wire:click="openCheckout" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
-                        Encaisser
-                    </button>
-                @endif
-            </div>
-        </div>
-
-        <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-            <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Ventes récentes du jour</h3>
-
-            @if ($this->recentSales->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">Aucune vente enregistrée aujourd'hui.</p>
-            @else
-                <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach ($this->recentSales as $sale)
-                        <div class="flex items-center justify-between py-2 text-sm" wire:key="recent-sale-{{ $sale->id }}">
-                            <span class="text-gray-500 dark:text-gray-400 w-16">{{ $sale->created_at->format('H:i') }}</span>
-                            <span class="text-gray-700 dark:text-gray-300 flex-1">{{ $sale->user->name }}</span>
-                            <span class="text-gray-500 dark:text-gray-400 w-28 hidden sm:inline">{{ $sale->payment_method->label() }}</span>
-                            <span class="text-gray-900 dark:text-gray-100 font-medium">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
+                            @endforeach
                         </div>
-                    @endforeach
+                    @endif
                 </div>
-            @endif
+            </div>
         </div>
 
         @if (! empty($cart))
@@ -168,6 +197,7 @@
                 <span class="text-sm font-medium">{{ array_sum(array_column($cart, 'quantity')) }} article(s)</span>
                 <span class="font-semibold">{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA · Voir le panier</span>
             </a>
+        @endif
         @endif
 
         @if ($showCheckout)

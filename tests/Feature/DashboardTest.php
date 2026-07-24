@@ -2,8 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PaymentMethod;
 use App\Livewire\Dashboard\Overview;
+use App\Models\CashRegisterClosing;
+use App\Models\Category;
+use App\Models\Expense;
+use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -51,5 +57,99 @@ class DashboardTest extends TestCase
         $data30 = $component->instance()->chartData();
         $this->assertCount(30, $data30['labels']);
         $this->assertEquals(102999, array_sum($data30['values']));
+    }
+
+    public function test_net_profit_is_revenue_minus_expenses(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 10000, 'created_at' => now()]);
+        Expense::factory()->create(['amount' => 4000, 'expense_date' => now()->format('Y-m-d')]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('todayRevenue', 10000)
+            ->assertSet('todayExpenses', 4000)
+            ->assertSet('todayNetProfit', 6000);
+    }
+
+    public function test_change_percent_compares_today_to_yesterday(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 5000, 'created_at' => now()->subDay()]);
+        Sale::factory()->create(['total_amount' => 6000, 'created_at' => now()]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('yesterdayRevenue', 5000)
+            ->assertSet('todayRevenue', 6000)
+            ->assertSet('revenueChangePercent', 20.0);
+    }
+
+    public function test_change_percent_is_null_when_there_is_no_baseline(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 6000, 'created_at' => now()]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('yesterdayRevenue', 0)
+            ->assertSet('revenueChangePercent', null);
+    }
+
+    public function test_payment_method_breakdown_sums_and_percentages_are_correct(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['payment_method' => PaymentMethod::Cash, 'total_amount' => 7500, 'created_at' => now()]);
+        Sale::factory()->create(['payment_method' => PaymentMethod::OrangeMoney, 'total_amount' => 2500, 'created_at' => now()]);
+
+        $breakdown = Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->instance()
+            ->paymentMethodBreakdown();
+
+        $this->assertCount(2, $breakdown);
+        $this->assertEquals('cash', $breakdown[0]['method']->value);
+        $this->assertEquals(7500, $breakdown[0]['amount']);
+        $this->assertEquals(75.0, $breakdown[0]['percent']);
+        $this->assertEquals(25.0, $breakdown[1]['percent']);
+    }
+
+    public function test_top_products_ranks_by_quantity_sold_within_the_period(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+        $burger = Product::factory()->create(['category_id' => $category->id, 'name' => 'Cheeseburger']);
+        $fries = Product::factory()->create(['category_id' => $category->id, 'name' => 'Frites']);
+
+        $sale = Sale::factory()->create(['created_at' => now()]);
+        SaleItem::create(['sale_id' => $sale->id, 'product_id' => $burger->id, 'product_name' => 'Cheeseburger', 'unit_price' => 1500, 'quantity' => 5, 'subtotal' => 7500]);
+        SaleItem::create(['sale_id' => $sale->id, 'product_id' => $fries->id, 'product_name' => 'Frites', 'unit_price' => 800, 'quantity' => 2, 'subtotal' => 1600]);
+
+        $top = Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->instance()
+            ->topProducts();
+
+        $this->assertEquals('Cheeseburger', $top->first()->product_name);
+        $this->assertEquals(5, $top->first()->total_quantity);
+    }
+
+    public function test_today_closing_reflects_register_status(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('todayClosing', null);
+
+        CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('todayClosing.id', fn ($id) => $id !== null);
     }
 }

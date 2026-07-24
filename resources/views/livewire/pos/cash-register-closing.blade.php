@@ -50,6 +50,16 @@
                         <dd class="text-gray-900 dark:text-gray-100">{{ number_format($existingClosing->total_amount, 0, ',', ' ') }} FCFA</dd>
                     </div>
                 </dl>
+
+                @if (auth()->user()->isAtLeastManager())
+                    <button
+                        wire:click="reopen"
+                        wire:confirm="Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd'hui, et il faudra refaire une clôture complète plus tard."
+                        wire:loading.attr="disabled"
+                        wire:target="reopen"
+                        class="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-md py-2 font-medium disabled:opacity-50"
+                    >Réouvrir la caisse</button>
+                @endif
             @else
                 <p class="text-gray-600 dark:text-gray-400 text-sm">Récapitulatif des ventes non encore clôturées aujourd'hui :</p>
 

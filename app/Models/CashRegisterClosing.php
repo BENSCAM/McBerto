@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CashRegisterClosing extends Model
 {
@@ -49,5 +51,24 @@ class CashRegisterClosing extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class);
+    }
+
+    /**
+     * Reopen today's cash register: detaches its sales (so they become
+     * pending again) and removes the closing record, allowing both new
+     * sales and a fresh closing later that covers everything.
+     */
+    public static function reopenToday(): void
+    {
+        DB::transaction(function () {
+            $closing = static::whereDate('closing_date', Carbon::today())->first();
+
+            if (! $closing) {
+                return;
+            }
+
+            Sale::where('cash_register_closing_id', $closing->id)->update(['cash_register_closing_id' => null]);
+            $closing->delete();
+        });
     }
 }
