@@ -17,6 +17,8 @@ class Sale extends Model
         'user_id',
         'payment_method',
         'total_amount',
+        'amount_given',
+        'change_due',
         'cash_register_closing_id',
     ];
 
@@ -25,6 +27,8 @@ class Sale extends Model
         return [
             'payment_method' => PaymentMethod::class,
             'total_amount' => 'integer',
+            'amount_given' => 'integer',
+            'change_due' => 'integer',
         ];
     }
 

@@ -2,16 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CashRegisterClosing extends Model
 {
+    /** @use HasFactory<\Database\Factories\CashRegisterClosingFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'closing_date',
         'closed_by',
         'total_cash',
+        'counted_cash',
+        'variance',
         'total_orange_money',
         'total_mtn_momo',
         'total_other',
@@ -25,6 +31,8 @@ class CashRegisterClosing extends Model
         return [
             'closing_date' => 'date',
             'total_cash' => 'integer',
+            'counted_cash' => 'integer',
+            'variance' => 'integer',
             'total_orange_money' => 'integer',
             'total_mtn_momo' => 'integer',
             'total_other' => 'integer',

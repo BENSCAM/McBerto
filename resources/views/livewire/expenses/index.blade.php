@@ -5,9 +5,12 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithPagination;
+
     #[Validate('required|in:matieres_premieres,charges,salaires,autre')]
     public string $category = '';
 
@@ -27,7 +30,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function expenses()
     {
-        return Expense::with('user')->orderByDesc('expense_date')->orderByDesc('id')->limit(50)->get();
+        return Expense::with('user')->orderByDesc('expense_date')->orderByDesc('id')->paginate(10);
     }
 
     public function save(): void
@@ -117,5 +120,7 @@ new #[Layout('layouts.app')] class extends Component
                 </tbody>
             </table>
         </div>
+
+        {{ $this->expenses()->links() }}
     </div>
 </div>

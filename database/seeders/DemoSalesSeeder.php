@@ -92,10 +92,16 @@ class DemoSalesSeeder
             fn (PaymentMethod $method) => [$method->value => $sales->where('payment_method', $method)->sum('total_amount')]
         );
 
+        // Most days the count matches exactly; occasionally a small demo variance for realism.
+        $variance = random_int(1, 100) <= 20 ? random_int(-2000, 2000) : 0;
+        $countedCash = max(0, $totals['cash'] + $variance);
+
         $closing = new CashRegisterClosing([
             'closing_date' => $day->format('Y-m-d'),
             'closed_by' => $closedBy->id,
             'total_cash' => $totals['cash'],
+            'counted_cash' => $countedCash,
+            'variance' => $countedCash - $totals['cash'],
             'total_orange_money' => $totals['orange_money'],
             'total_mtn_momo' => $totals['mtn_momo'],
             'total_other' => $totals['other'],

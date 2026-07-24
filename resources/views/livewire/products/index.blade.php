@@ -5,9 +5,12 @@ use App\Models\Product;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithPagination;
+
     #[Validate('required|string|max:150')]
     public string $name = '';
 
@@ -24,7 +27,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function products()
     {
-        return Product::with('category')->orderBy('name')->get();
+        return Product::with('category')->orderBy('name')->paginate(10);
     }
 
     public function categoryOptions()
@@ -169,5 +172,7 @@ new #[Layout('layouts.app')] class extends Component
                 </tbody>
             </table>
         </div>
+
+        {{ $this->products()->links() }}
     </div>
 </div>

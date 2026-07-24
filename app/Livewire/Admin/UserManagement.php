@@ -10,9 +10,12 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class UserManagement extends Component
 {
+    use WithPagination;
+
     #[Validate('required|string|max:100')]
     public string $name = '';
 
@@ -29,7 +32,7 @@ class UserManagement extends Component
 
     public function users()
     {
-        return User::orderBy('name')->get();
+        return User::orderBy('name')->paginate(10);
     }
 
     public function createUser(): void

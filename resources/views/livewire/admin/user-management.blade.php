@@ -72,5 +72,7 @@
                 </tbody>
             </table>
         </div>
+
+        {{ $this->users()->links() }}
     </div>
 </div>

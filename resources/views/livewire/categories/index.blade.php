@@ -5,9 +5,12 @@ use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithPagination;
+
     #[Validate('required|string|max:100')]
     public string $name = '';
 
@@ -15,7 +18,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function categories()
     {
-        return Category::withCount('products')->orderBy('name')->get();
+        return Category::withCount('products')->orderBy('name')->paginate(10);
     }
 
     public function edit(int $id): void
@@ -103,5 +106,7 @@ new #[Layout('layouts.app')] class extends Component
                 </tbody>
             </table>
         </div>
+
+        {{ $this->categories()->links() }}
     </div>
 </div>

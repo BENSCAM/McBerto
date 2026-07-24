@@ -1,6 +1,11 @@
 <div class="py-12">
     <div class="max-w-2xl mx-auto sm:px-6 lg:px-8 space-y-6">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Clôture de caisse — {{ now()->translatedFormat('d/m/Y') }}</h2>
+        <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Clôture de caisse — {{ now()->translatedFormat('d/m/Y') }}</h2>
+            @if (auth()->user()->isAtLeastManager())
+                <a href="{{ route('pos.closing.history') }}" wire:navigate class="text-sm text-brand-600 dark:text-brand-400 underline">Historique</a>
+            @endif
+        </div>
 
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6 space-y-4">
             @if ($existingClosing)
@@ -10,8 +15,23 @@
 
                 <dl class="divide-y divide-gray-200 dark:divide-gray-700">
                     <div class="flex justify-between py-2">
-                        <dt class="text-gray-600 dark:text-gray-400">Espèces</dt>
+                        <dt class="text-gray-600 dark:text-gray-400">Espèces (système)</dt>
                         <dd class="text-gray-900 dark:text-gray-100">{{ number_format($existingClosing->total_cash, 0, ',', ' ') }} FCFA</dd>
+                    </div>
+                    <div class="flex justify-between py-2">
+                        <dt class="text-gray-600 dark:text-gray-400">Espèces comptées</dt>
+                        <dd class="text-gray-900 dark:text-gray-100">{{ number_format($existingClosing->counted_cash, 0, ',', ' ') }} FCFA</dd>
+                    </div>
+                    <div class="flex justify-between py-2">
+                        <dt class="text-gray-600 dark:text-gray-400">Écart</dt>
+                        <dd class="font-semibold {{ $existingClosing->variance == 0 ? 'text-green-600' : ($existingClosing->variance < 0 ? 'text-red-600' : 'text-blue-600') }}">
+                            @if ($existingClosing->variance == 0)
+                                Aucun écart
+                            @else
+                                {{ $existingClosing->variance > 0 ? '+' : '' }}{{ number_format($existingClosing->variance, 0, ',', ' ') }} FCFA
+                                {{ $existingClosing->variance < 0 ? '(manque)' : '(surplus)' }}
+                            @endif
+                        </dd>
                     </div>
                     <div class="flex justify-between py-2">
                         <dt class="text-gray-600 dark:text-gray-400">Orange Money</dt>
@@ -35,7 +55,7 @@
 
                 <dl class="divide-y divide-gray-200 dark:divide-gray-700">
                     <div class="flex justify-between py-2">
-                        <dt class="text-gray-600 dark:text-gray-400">Espèces</dt>
+                        <dt class="text-gray-600 dark:text-gray-400">Espèces (système)</dt>
                         <dd class="text-gray-900 dark:text-gray-100">{{ number_format($pendingTotals['cash'] ?? 0, 0, ',', ' ') }} FCFA</dd>
                     </div>
                     <div class="flex justify-between py-2">
@@ -56,10 +76,38 @@
                     </div>
                 </dl>
 
+                @if ($pendingCount > 0)
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <x-input-label for="countedCash" value="Montant en espèces réellement compté dans le tiroir" />
+                        <x-text-input
+                            wire:model.live="countedCash"
+                            id="countedCash"
+                            class="block mt-1 w-full"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                        />
+                        <x-input-error :messages="$errors->get('countedCash')" class="mt-2" />
+
+                        @if ($this->projectedVariance !== null)
+                            <p class="mt-2 text-sm {{ $this->projectedVariance == 0 ? 'text-green-600' : ($this->projectedVariance < 0 ? 'text-red-600' : 'text-blue-600') }}">
+                                @if ($this->projectedVariance == 0)
+                                    Aucun écart par rapport au système.
+                                @else
+                                    Écart : {{ $this->projectedVariance > 0 ? '+' : '' }}{{ number_format($this->projectedVariance, 0, ',', ' ') }} FCFA
+                                    {{ $this->projectedVariance < 0 ? '(manque)' : '(surplus)' }}
+                                @endif
+                            </p>
+                        @endif
+                    </div>
+                @endif
+
                 <button
                     wire:click="close"
                     wire:confirm="Confirmer la clôture de caisse du jour ? Cette action est définitive."
-                    class="w-full bg-brand-600 text-white rounded-md py-2 font-medium"
+                    wire:loading.attr="disabled"
+                    wire:target="close"
+                    class="w-full bg-brand-600 text-white rounded-md py-2 font-medium disabled:opacity-50"
                     @disabled($pendingCount === 0)
                 >
                     Clôturer la caisse

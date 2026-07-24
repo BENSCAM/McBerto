@@ -17,12 +17,23 @@ class Terminal extends Component
 {
     public ?int $activeCategoryId = null;
 
+    public string $search = '';
+
     /** @var array<int, array{name: string, emoji: ?string, price: int, quantity: int}> */
     public array $cart = [];
 
     public bool $showCheckout = false;
 
-    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, created_at: \Illuminate\Support\Carbon, cashier: string}|null */
+    /**
+     * Which payment method the checkout modal is showing details for.
+     * Null means the method-selection list is shown. 'cash' switches to
+     * the amount-given / change-due sub-screen before the sale is finalized.
+     */
+    public ?string $checkoutMethod = null;
+
+    public string $amountGiven = '';
+
+    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
     public ?array $lastSaleReceipt = null;
 
     public function mount(): void
@@ -47,6 +58,31 @@ class Terminal extends Component
     public function selectCategory(int $categoryId): void
     {
         $this->activeCategoryId = $categoryId;
+        $this->search = '';
+    }
+
+    public function updatedSearch(): void
+    {
+        // Searching browses across all categories; clear the active
+        // category highlight so the sidebar doesn't show a stale selection.
+        if (trim($this->search) !== '') {
+            $this->activeCategoryId = null;
+        } elseif ($this->activeCategoryId === null) {
+            $this->activeCategoryId = $this->categories()->first()?->id;
+        }
+    }
+
+    #[Computed]
+    public function visibleProducts()
+    {
+        if (trim($this->search) !== '') {
+            return Product::where('is_active', true)
+                ->where('name', 'like', '%'.$this->search.'%')
+                ->orderBy('name')
+                ->get();
+        }
+
+        return $this->categoriesWithProducts->firstWhere('id', $this->activeCategoryId)?->products ?? collect();
     }
 
     public function addToCart(int $productId): void
@@ -121,6 +157,16 @@ class Terminal extends Component
         ));
     }
 
+    #[Computed]
+    public function recentSales()
+    {
+        return Sale::whereDate('created_at', now())
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->get();
+    }
+
     public function openCheckout(): void
     {
         if (empty($this->cart)) {
@@ -133,9 +179,53 @@ class Terminal extends Component
     public function closeCheckout(): void
     {
         $this->showCheckout = false;
+        $this->checkoutMethod = null;
+        $this->amountGiven = '';
     }
 
-    public function completeSale(string $paymentMethod): void
+    public function selectPaymentMethod(string $paymentMethod): void
+    {
+        if ($paymentMethod === PaymentMethod::Cash->value) {
+            $this->checkoutMethod = 'cash';
+            $this->amountGiven = '';
+
+            return;
+        }
+
+        $this->completeSale($paymentMethod);
+    }
+
+    public function backToPaymentMethods(): void
+    {
+        $this->checkoutMethod = null;
+        $this->amountGiven = '';
+    }
+
+    public function setAmountGiven(int $amount): void
+    {
+        $this->amountGiven = (string) $amount;
+    }
+
+    #[Computed]
+    public function changeDue(): ?int
+    {
+        if ($this->amountGiven === '' || ! is_numeric($this->amountGiven)) {
+            return null;
+        }
+
+        return (int) $this->amountGiven - $this->cartTotal();
+    }
+
+    public function confirmCashSale(): void
+    {
+        if ($this->changeDue() === null || $this->changeDue() < 0) {
+            return;
+        }
+
+        $this->completeSale('cash', (int) $this->amountGiven, $this->changeDue());
+    }
+
+    public function completeSale(string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null): void
     {
         if (empty($this->cart)) {
             return;
@@ -144,11 +234,13 @@ class Terminal extends Component
         $method = PaymentMethod::from($paymentMethod);
         $total = $this->cartTotal();
 
-        $saleId = DB::transaction(function () use ($method, $total) {
+        $saleId = DB::transaction(function () use ($method, $total, $amountGiven, $changeDue) {
             $sale = Sale::create([
                 'user_id' => Auth::id(),
                 'payment_method' => $method,
                 'total_amount' => $total,
+                'amount_given' => $amountGiven,
+                'change_due' => $changeDue,
             ]);
 
             foreach ($this->cart as $productId => $item) {
@@ -172,9 +264,13 @@ class Terminal extends Component
             'payment_method' => $method,
             'created_at' => now(),
             'cashier' => Auth::user()->name,
+            'amount_given' => $amountGiven,
+            'change_due' => $changeDue,
         ];
         $this->cart = [];
         $this->showCheckout = false;
+        $this->checkoutMethod = null;
+        $this->amountGiven = '';
     }
 
     public function closeReceipt(): void

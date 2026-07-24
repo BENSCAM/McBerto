@@ -97,4 +97,154 @@ class PosTerminalTest extends TestCase
             ->call('clearCart')
             ->assertSet('cart', []);
     }
+
+    public function test_search_finds_products_across_categories(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $burgers = Category::factory()->create(['name' => 'Burgers']);
+        $drinks = Category::factory()->create(['name' => 'Boissons']);
+        Product::factory()->create(['category_id' => $burgers->id, 'name' => 'Cheeseburger']);
+        $cola = Product::factory()->create(['category_id' => $drinks->id, 'name' => 'Coca-Cola']);
+
+        $component = Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->set('search', 'cola');
+
+        $visible = $component->instance()->visibleProducts();
+
+        $this->assertCount(1, $visible);
+        $this->assertSame($cola->id, $visible->first()->id);
+    }
+
+    public function test_clearing_search_restores_category_browsing(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        Product::factory()->create(['category_id' => $category->id]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->set('search', 'xyz')
+            ->assertSet('activeCategoryId', null)
+            ->set('search', '')
+            ->assertSet('activeCategoryId', $category->id);
+    }
+
+    public function test_selecting_cash_shows_change_due_screen_instead_of_completing_immediately(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('openCheckout')
+            ->call('selectPaymentMethod', 'cash')
+            ->assertSet('checkoutMethod', 'cash')
+            ->assertSet('cart', [
+                $product->id => ['name' => $product->name, 'emoji' => null, 'price' => 1500, 'quantity' => 1],
+            ]);
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_change_due_is_computed_and_stored_on_the_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('openCheckout')
+            ->call('selectPaymentMethod', 'cash')
+            ->set('amountGiven', '2000')
+            ->assertSet('changeDue', 500)
+            ->call('confirmCashSale')
+            ->assertSet('lastSaleReceipt.amount_given', 2000)
+            ->assertSet('lastSaleReceipt.change_due', 500);
+
+        $this->assertDatabaseHas('sales', [
+            'total_amount' => 1500,
+            'amount_given' => 2000,
+            'change_due' => 500,
+        ]);
+    }
+
+    public function test_cash_sale_cannot_be_confirmed_with_insufficient_amount(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('openCheckout')
+            ->call('selectPaymentMethod', 'cash')
+            ->set('amountGiven', '1000')
+            ->assertSet('changeDue', -500)
+            ->call('confirmCashSale')
+            ->assertSet('lastSaleReceipt', null);
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_quick_note_buttons_set_the_amount_given(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('openCheckout')
+            ->call('selectPaymentMethod', 'cash')
+            ->call('setAmountGiven', 2000)
+            ->assertSet('amountGiven', '2000')
+            ->assertSet('changeDue', 500);
+    }
+
+    public function test_non_cash_payment_methods_skip_the_change_due_screen(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('openCheckout')
+            ->call('selectPaymentMethod', 'orange_money')
+            ->assertSet('cart', [])
+            ->assertSet('lastSaleReceipt.amount_given', null);
+
+        $this->assertDatabaseHas('sales', [
+            'payment_method' => 'orange_money',
+            'amount_given' => null,
+        ]);
+    }
+
+    public function test_recent_sales_shows_todays_sales(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2000]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('completeSale', 'cash');
+
+        $recent = Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->instance()
+            ->recentSales();
+
+        $this->assertCount(1, $recent);
+        $this->assertEquals(2000, $recent->first()->total_amount);
+    }
 }

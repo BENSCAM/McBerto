@@ -3,6 +3,7 @@
 use App\Livewire\Admin\UserManagement;
 use App\Livewire\Dashboard\Overview;
 use App\Livewire\Pos\CashRegisterClosing;
+use App\Livewire\Pos\ClosingHistory;
 use App\Livewire\Pos\Terminal;
 use App\Livewire\Reports\DailyReport;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,7 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('/categories', 'categories.index')->name('categories.index');
         Volt::route('/products', 'products.index')->name('products.index');
         Volt::route('/expenses', 'expenses.index')->name('expenses.index');
+        Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
     });
 
     Route::middleware('role:owner')->group(function () {

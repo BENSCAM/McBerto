@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -74,5 +75,20 @@ class ProductManagementTest extends TestCase
             'name' => 'Sans emoji',
             'emoji' => null,
         ]);
+    }
+
+    public function test_products_list_is_paginated(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+        Product::factory()->count(15)->create(['category_id' => $category->id]);
+
+        $paginator = Livewire::actingAs($manager)
+            ->test('products.index')
+            ->instance()
+            ->products();
+
+        $this->assertEquals(10, $paginator->count());
+        $this->assertEquals(15, $paginator->total());
     }
 }

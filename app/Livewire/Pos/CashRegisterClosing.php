@@ -8,7 +8,9 @@ use App\Models\Sale;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 class CashRegisterClosing extends Component
@@ -20,6 +22,9 @@ class CashRegisterClosing extends Component
     public int $pendingCount = 0;
 
     public int $pendingTotal = 0;
+
+    #[Validate('required|integer|min:0')]
+    public string $countedCash = '';
 
     public function mount(): void
     {
@@ -54,23 +59,40 @@ class CashRegisterClosing extends Component
             ->all();
     }
 
+    #[Computed]
+    public function projectedVariance(): ?int
+    {
+        if ($this->countedCash === '' || ! is_numeric($this->countedCash)) {
+            return null;
+        }
+
+        return (int) $this->countedCash - ($this->pendingTotals['cash'] ?? 0);
+    }
+
     public function close(): void
     {
         if ($this->existingClosing) {
             return;
         }
 
-        $today = Carbon::today();
+        $this->validate();
 
-        DB::transaction(function () use ($today) {
+        $today = Carbon::today();
+        $counted = (int) $this->countedCash;
+
+        DB::transaction(function () use ($today, $counted) {
             $pendingSales = Sale::whereNull('cash_register_closing_id')
                 ->whereDate('created_at', $today)
                 ->get();
 
+            $cashTotal = $pendingSales->where('payment_method', PaymentMethod::Cash)->sum('total_amount');
+
             $closing = CashRegisterClosingModel::create([
                 'closing_date' => $today,
                 'closed_by' => Auth::id(),
-                'total_cash' => $pendingSales->where('payment_method', PaymentMethod::Cash)->sum('total_amount'),
+                'total_cash' => $cashTotal,
+                'counted_cash' => $counted,
+                'variance' => $counted - $cashTotal,
                 'total_orange_money' => $pendingSales->where('payment_method', PaymentMethod::OrangeMoney)->sum('total_amount'),
                 'total_mtn_momo' => $pendingSales->where('payment_method', PaymentMethod::MtnMomo)->sum('total_amount'),
                 'total_other' => $pendingSales->where('payment_method', PaymentMethod::Other)->sum('total_amount'),
@@ -83,6 +105,7 @@ class CashRegisterClosing extends Component
                 ->update(['cash_register_closing_id' => $closing->id]);
         });
 
+        $this->reset('countedCash');
         $this->refreshState();
     }
 
