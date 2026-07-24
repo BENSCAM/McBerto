@@ -22,7 +22,8 @@ class Terminal extends Component
 
     public bool $showCheckout = false;
 
-    public ?int $lastSaleId = null;
+    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, created_at: \Illuminate\Support\Carbon, cashier: string}|null */
+    public ?array $lastSaleReceipt = null;
 
     public function mount(): void
     {
@@ -89,6 +90,28 @@ class Terminal extends Component
         unset($this->cart[$productId]);
     }
 
+    public function setQuantity(int $productId, $quantity): void
+    {
+        if (! isset($this->cart[$productId])) {
+            return;
+        }
+
+        $quantity = (int) $quantity;
+
+        if ($quantity <= 0) {
+            unset($this->cart[$productId]);
+
+            return;
+        }
+
+        $this->cart[$productId]['quantity'] = min($quantity, 999);
+    }
+
+    public function clearCart(): void
+    {
+        $this->cart = [];
+    }
+
     #[Computed]
     public function cartTotal(): int
     {
@@ -142,9 +165,21 @@ class Terminal extends Component
             return $sale->id;
         });
 
-        $this->lastSaleId = $saleId;
+        $this->lastSaleReceipt = [
+            'id' => $saleId,
+            'items' => $this->cart,
+            'total' => $total,
+            'payment_method' => $method,
+            'created_at' => now(),
+            'cashier' => Auth::user()->name,
+        ];
         $this->cart = [];
         $this->showCheckout = false;
+    }
+
+    public function closeReceipt(): void
+    {
+        $this->lastSaleReceipt = null;
     }
 
     #[Layout('layouts.app')]

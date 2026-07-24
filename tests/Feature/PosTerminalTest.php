@@ -38,7 +38,9 @@ class PosTerminalTest extends TestCase
             ->assertSet('showCheckout', true)
             ->call('completeSale', 'cash')
             ->assertSet('cart', [])
-            ->assertSet('showCheckout', false);
+            ->assertSet('showCheckout', false)
+            ->assertSet('lastSaleReceipt.total', 3000)
+            ->assertSet('lastSaleReceipt.payment_method', \App\Enums\PaymentMethod::Cash);
 
         $this->assertDatabaseHas('sales', [
             'user_id' => $cashier->id,
@@ -51,5 +53,48 @@ class PosTerminalTest extends TestCase
             'quantity' => 2,
             'subtotal' => 3000,
         ]);
+    }
+
+    public function test_receipt_can_be_dismissed_after_a_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('completeSale', 'cash')
+            ->assertSet('lastSaleReceipt.id', fn ($id) => $id !== null)
+            ->call('closeReceipt')
+            ->assertSet('lastSaleReceipt', null);
+    }
+
+    public function test_quantity_can_be_set_directly(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('setQuantity', $product->id, '5')
+            ->assertSet("cart.{$product->id}.quantity", 5)
+            ->call('setQuantity', $product->id, '0')
+            ->assertSet('cart', []);
+    }
+
+    public function test_cart_can_be_cleared(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('clearCart')
+            ->assertSet('cart', []);
     }
 }
