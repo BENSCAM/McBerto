@@ -83,6 +83,34 @@
             </div>
         </div>
 
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+            <div class="font-medium text-gray-800 dark:text-gray-200 mb-4">Ventes d'aujourd'hui par heure</div>
+
+            <div
+                wire:ignore
+                x-data="{
+                    chartInstance: null,
+                    init() {
+                        this.chartInstance = new Chart(this.$refs.hourlyCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: @js($this->hourlySales['labels']),
+                                datasets: [{
+                                    label: 'Ventes (FCFA)',
+                                    data: @js($this->hourlySales['values']),
+                                    backgroundColor: 'rgba(216, 15, 15, 0.7)',
+                                    borderRadius: 3,
+                                }],
+                            },
+                            options: { responsive: true, plugins: { legend: { display: false } } },
+                        });
+                    },
+                }"
+            >
+                <canvas x-ref="hourlyCanvas"></canvas>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                 <div class="font-medium text-gray-800 dark:text-gray-200 mb-3">Répartition par mode de paiement</div>

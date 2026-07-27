@@ -113,7 +113,7 @@ new #[Layout('layouts.app')] class extends Component
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ number_format($expense->amount, 0, ',', ' ') }} FCFA</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $expense->user->name }}</td>
                             <td class="px-6 py-3 text-right">
-                                <button wire:click="delete({{ $expense->id }})" wire:confirm="Supprimer cette dépense ?" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
+                                <button x-on:click="$store.confirmModal.open('Supprimer cette dépense ?', () => $wire.delete({{ $expense->id }}))" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
                             </td>
                         </tr>
                     @endforeach

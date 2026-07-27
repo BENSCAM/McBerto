@@ -63,7 +63,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <button wire:click="toggleActive({{ $user->id }})" wire:confirm="Confirmer le changement de statut de ce compte ?" class="text-sm text-brand-600 dark:text-brand-400">
+                                <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="text-sm text-brand-600 dark:text-brand-400">
                                     {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
                                 </button>
                             </td>

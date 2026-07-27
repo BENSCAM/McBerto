@@ -152,4 +152,27 @@ class DashboardTest extends TestCase
             ->test(Overview::class)
             ->assertSet('todayClosing.id', fn ($id) => $id !== null);
     }
+
+    public function test_hourly_sales_bucket_todays_sales_by_hour(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 3000, 'created_at' => now()->setTime(12, 30)]);
+        Sale::factory()->create(['total_amount' => 2000, 'created_at' => now()->setTime(12, 45)]);
+        Sale::factory()->create(['total_amount' => 5000, 'created_at' => now()->setTime(19, 10)]);
+        // Yesterday's sale must not leak into today's hourly breakdown.
+        Sale::factory()->create(['total_amount' => 99999, 'created_at' => now()->subDay()->setTime(12, 0)]);
+
+        $hourly = Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->instance()
+            ->hourlySales();
+
+        $this->assertCount(24, $hourly['labels']);
+        $this->assertEquals('12h', $hourly['labels'][12]);
+        $this->assertEquals(5000, $hourly['values'][12]);
+        $this->assertEquals(5000, $hourly['values'][19]);
+        $this->assertEquals(0, $hourly['values'][0]);
+        $this->assertEquals(10000, array_sum($hourly['values']));
+    }
 }

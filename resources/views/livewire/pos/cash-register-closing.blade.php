@@ -53,8 +53,7 @@
 
                 @if (auth()->user()->isAtLeastManager())
                     <button
-                        wire:click="reopen"
-                        wire:confirm="Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd'hui, et il faudra refaire une clôture complète plus tard."
+                        x-on:click="$store.confirmModal.open('Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd\'hui, et il faudra refaire une clôture complète plus tard.', () => $wire.reopen())"
                         wire:loading.attr="disabled"
                         wire:target="reopen"
                         class="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-md py-2 font-medium disabled:opacity-50"
@@ -113,8 +112,7 @@
                 @endif
 
                 <button
-                    wire:click="close"
-                    wire:confirm="Confirmer la clôture de caisse du jour ? Cette action est définitive."
+                    x-on:click="$store.confirmModal.open('Confirmer la clôture de caisse du jour ? Cette action est définitive.', () => $wire.close())"
                     wire:loading.attr="disabled"
                     wire:target="close"
                     class="w-full bg-brand-600 text-white rounded-md py-2 font-medium disabled:opacity-50"

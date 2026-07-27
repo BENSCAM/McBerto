@@ -28,8 +28,7 @@
 
                 @if (auth()->user()->isAtLeastManager())
                     <button
-                        wire:click="reopenRegister"
-                        wire:confirm="Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd'hui."
+                        x-on:click="$store.confirmModal.open('Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd\'hui.', () => $wire.reopenRegister())"
                         wire:loading.attr="disabled"
                         wire:target="reopenRegister"
                         class="mt-6 bg-brand-600 text-white rounded-md px-4 py-2 font-medium disabled:opacity-50"
@@ -105,8 +104,7 @@
                         </h3>
                         @if (! empty($cart))
                             <button
-                                wire:click="clearCart"
-                                wire:confirm="Vider le panier ?"
+                                x-on:click="$store.confirmModal.open('Vider le panier ?', () => $wire.clearCart())"
                                 wire:loading.attr="disabled"
                                 wire:target="clearCart"
                                 class="text-xs text-red-500 dark:text-red-400 underline"
@@ -251,8 +249,7 @@
                                 class="flex-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-md py-2"
                             >Retour</button>
                             <button
-                                wire:click="confirmCashSale"
-                                wire:confirm="Confirmer l'encaissement de {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA en espèces ?"
+                                x-on:click="$store.confirmModal.open('Confirmer l\'encaissement de {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA en espèces ?', () => $wire.confirmCashSale())"
                                 wire:loading.attr="disabled"
                                 wire:target="confirmCashSale"
                                 @disabled($this->changeDue === null || $this->changeDue < 0)
@@ -273,8 +270,7 @@
                                     >{{ $method->label() }}</button>
                                 @else
                                     <button
-                                        wire:click="completeSale('{{ $method->value }}')"
-                                        wire:confirm="Confirmer l'encaissement de {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA en {{ $method->label() }} ?"
+                                        x-on:click="$store.confirmModal.open('Confirmer l\'encaissement de {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA en {{ $method->label() }} ?', () => $wire.completeSale('{{ $method->value }}'))"
                                         wire:loading.attr="disabled"
                                         wire:loading.class="opacity-50 cursor-wait"
                                         wire:target="completeSale"

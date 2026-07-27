@@ -146,6 +146,24 @@ class Overview extends Component
             ->get();
     }
 
+    #[Computed]
+    public function hourlySales(): array
+    {
+        $sales = Sale::whereDate('created_at', now())->get();
+
+        $labels = [];
+        $values = [];
+
+        for ($hour = 0; $hour < 24; $hour++) {
+            $labels[] = sprintf('%dh', $hour);
+            $values[] = (int) $sales
+                ->filter(fn ($sale) => (int) $sale->created_at->format('G') === $hour)
+                ->sum('total_amount');
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
     public function chartData(): array
     {
         return match ($this->period) {
