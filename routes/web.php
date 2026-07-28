@@ -13,14 +13,6 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-// TEMP DEBUG ROUTE — remove after visual verification.
-Route::get('/_debug-login/{role}', function (string $role) {
-    \Illuminate\Support\Facades\Auth::login(\App\Models\User::where('role', $role)->first());
-
-    return redirect('/_debug-confirm');
-});
-Route::view('/_debug-confirm', 'debug-confirm')->middleware('auth');
-
 Route::middleware(['auth'])->group(function () {
 
     Route::middleware('role:cashier,manager,owner')->group(function () {
