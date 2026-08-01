@@ -7,34 +7,57 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
+     *
+     * Safe to run in production: only the real Propriétaire account (from
+     * .env) and the product catalog are created. Demo manager/cashier
+     * accounts and fake historical sales are local-only, since they'd be
+     * confusing or misleading in a real deployment.
      */
     public function run(): void
     {
-        $owner = User::factory()->create([
-            'name' => 'Bertony Effa',
-            'email' => 'owner@mcberto.test',
-            'role' => UserRole::Owner,
-        ]);
+        $owner = User::firstOrCreate(
+            ['email' => env('ADMIN_EMAIL', 'owner@mcberto.test')],
+            [
+                'name' => env('ADMIN_NAME', 'Bertony Effa'),
+                'password' => bcrypt(env('ADMIN_PASSWORD', 'password')),
+                'role' => UserRole::Owner,
+                'email_verified_at' => now(),
+            ]
+        );
 
-        $manager = User::factory()->create([
-            'name' => 'Gestionnaire McBerto',
-            'email' => 'manager@mcberto.test',
-            'role' => UserRole::Manager,
-        ]);
+        $catalog = $this->seedCatalog();
+
+        if (app()->environment('local')) {
+            $this->seedDemoData($owner, $catalog);
+        }
+    }
+
+    protected function seedDemoData(User $owner, Collection $products): void
+    {
+        $manager = User::firstOrCreate(
+            ['email' => 'manager@mcberto.test'],
+            ['name' => 'Gestionnaire McBerto', 'password' => bcrypt('password'), 'role' => UserRole::Manager, 'email_verified_at' => now()]
+        );
 
         $cashiers = collect([
             ['name' => 'Caissier Un', 'email' => 'cashier1@mcberto.test'],
             ['name' => 'Caissier Deux', 'email' => 'cashier2@mcberto.test'],
-        ])->map(fn (array $attrs) => User::factory()->create([
-            ...$attrs,
-            'role' => UserRole::Cashier,
-        ]));
+        ])->map(fn (array $attrs) => User::firstOrCreate(
+            ['email' => $attrs['email']],
+            ['name' => $attrs['name'], 'password' => bcrypt('password'), 'role' => UserRole::Cashier, 'email_verified_at' => now()]
+        ));
 
+        (new DemoSalesSeeder)->run($cashiers, $products, $manager);
+    }
+
+    protected function seedCatalog(): Collection
+    {
         $catalog = [
             'Burgers' => [
                 ['Cheeseburger', 1500, '🍔'],
@@ -89,18 +112,16 @@ class DatabaseSeeder extends Seeder
         $products = collect();
 
         foreach ($catalog as $categoryName => $items) {
-            $category = Category::create(['name' => $categoryName]);
+            $category = Category::firstOrCreate(['name' => $categoryName]);
 
             foreach ($items as [$name, $price, $emoji]) {
-                $products->push(Product::create([
-                    'category_id' => $category->id,
-                    'name' => $name,
-                    'emoji' => $emoji,
-                    'price' => $price,
-                ]));
+                $products->push(Product::firstOrCreate(
+                    ['category_id' => $category->id, 'name' => $name],
+                    ['emoji' => $emoji, 'price' => $price]
+                ));
             }
         }
 
-        (new DemoSalesSeeder)->run($cashiers, $products, $manager);
+        return $products;
     }
 }
