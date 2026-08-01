@@ -57,6 +57,16 @@ npm ci
 npm run build
 ```
 
+### Publier les assets Livewire en fichiers statiques
+
+CloudPanel met en cache agressif tous les fichiers `.js` au niveau Nginx (règle `location ~* ^.+\.(css|js|...)$`). Or `livewire.js` est normalement servi par une route dynamique Laravel, pas un vrai fichier — cette règle l'intercepte et renvoie une 404, **ce qui casse toute la connexion et l'interactivité du site**. La solution officielle est de publier ce script comme un vrai fichier statique :
+
+```bash
+php artisan livewire:publish --assets
+```
+
+À refaire après chaque mise à jour de Livewire (déjà inclus dans `deploy.sh`).
+
 ## 7. Configurer l'environnement
 
 ```bash

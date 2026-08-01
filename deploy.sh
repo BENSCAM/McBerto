@@ -11,6 +11,9 @@ echo "==> Installing JS dependencies and building assets"
 npm ci
 npm run build
 
+echo "==> Publishing Livewire assets as static files (avoids Nginx .js caching rules 404ing the dynamic livewire.js route)"
+php artisan livewire:publish --assets
+
 echo "==> Running migrations"
 php artisan migrate --force
 
