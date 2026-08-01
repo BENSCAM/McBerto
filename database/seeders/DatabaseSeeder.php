@@ -22,10 +22,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $owner = User::firstOrCreate(
-            ['email' => env('ADMIN_EMAIL', 'owner@mcberto.test')],
+            ['email' => config('mcberto.admin.email')],
             [
-                'name' => env('ADMIN_NAME', 'Bertony Effa'),
-                'password' => bcrypt(env('ADMIN_PASSWORD', 'password')),
+                'name' => config('mcberto.admin.name'),
+                'password' => bcrypt(config('mcberto.admin.password')),
                 'role' => UserRole::Owner,
                 'email_verified_at' => now(),
             ]

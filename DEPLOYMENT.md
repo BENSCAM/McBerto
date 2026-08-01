@@ -33,6 +33,12 @@ rm -rf * .[!.]*        # vide le dossier (CloudPanel y met un index.html par dé
 git clone https://github.com/BENSCAM/McBerto.git .
 ```
 
+> ⚠️ Le `.` final est obligatoire — il dit à Git de cloner **dans le dossier courant**. Si tu l'oublies, Git crée un sous-dossier `McBerto/` et `composer.json` ne sera pas trouvé à la racine. Si ça t'arrive :
+> ```bash
+> mv McBerto/* McBerto/.[!.]* .
+> rmdir McBerto
+> ```
+
 ## 5. Installer les dépendances PHP
 
 ```bash
