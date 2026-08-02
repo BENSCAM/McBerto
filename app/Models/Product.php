@@ -18,6 +18,7 @@ class Product extends Model
         'name',
         'emoji',
         'price',
+        'service_area',
         'stock_quantity',
         'is_active',
     ];
@@ -26,6 +27,7 @@ class Product extends Model
     {
         return [
             'price' => 'integer',
+            'service_area' => \App\Enums\ServiceArea::class,
             'stock_quantity' => 'integer',
             'is_active' => 'boolean',
         ];

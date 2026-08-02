@@ -3,6 +3,7 @@
 namespace App\Livewire\Pos;
 
 use App\Enums\PaymentMethod;
+use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing as CashRegisterClosingModel;
 use App\Models\Sale;
 use Illuminate\Support\Carbon;
@@ -18,6 +19,8 @@ class CashRegisterClosing extends Component
     public ?CashRegisterClosingModel $existingClosing = null;
 
     public array $pendingTotals = [];
+
+    public array $pendingServiceAreaTotals = [];
 
     public int $pendingCount = 0;
 
@@ -41,6 +44,7 @@ class CashRegisterClosing extends Component
             $this->pendingCount = 0;
             $this->pendingTotal = 0;
             $this->pendingTotals = [];
+            $this->pendingServiceAreaTotals = [];
 
             return;
         }
@@ -55,6 +59,36 @@ class CashRegisterClosing extends Component
         $this->pendingTotals = collect(PaymentMethod::cases())
             ->mapWithKeys(fn (PaymentMethod $method) => [
                 $method->value => $pendingSales->where('payment_method', $method)->sum('total_amount'),
+            ])
+            ->all();
+
+        $this->pendingServiceAreaTotals = collect(ServiceArea::cases())
+            ->mapWithKeys(fn (ServiceArea $serviceArea) => [
+                $serviceArea->value => [
+                    'label' => $serviceArea->label(),
+                    'count' => $pendingSales->where('service_area', $serviceArea)->count(),
+                    'total' => $pendingSales->where('service_area', $serviceArea)->sum('total_amount'),
+                ],
+            ])
+            ->all();
+    }
+
+    #[Computed]
+    public function existingServiceAreaTotals(): array
+    {
+        if (! $this->existingClosing) {
+            return [];
+        }
+
+        $sales = $this->existingClosing->sales;
+
+        return collect(ServiceArea::cases())
+            ->mapWithKeys(fn (ServiceArea $serviceArea) => [
+                $serviceArea->value => [
+                    'label' => $serviceArea->label(),
+                    'count' => $sales->where('service_area', $serviceArea)->count(),
+                    'total' => $sales->where('service_area', $serviceArea)->sum('total_amount'),
+                ],
             ])
             ->all();
     }

@@ -16,6 +16,7 @@ class Sale extends Model
     protected $fillable = [
         'user_id',
         'payment_method',
+        'service_area',
         'total_amount',
         'amount_given',
         'change_due',
@@ -26,6 +27,7 @@ class Sale extends Model
     {
         return [
             'payment_method' => PaymentMethod::class,
+            'service_area' => \App\Enums\ServiceArea::class,
             'total_amount' => 'integer',
             'amount_given' => 'integer',
             'change_due' => 'integer',

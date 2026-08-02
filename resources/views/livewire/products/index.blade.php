@@ -2,6 +2,7 @@
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Enums\ServiceArea;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
@@ -20,6 +21,9 @@ new #[Layout('layouts.app')] class extends Component
     #[Validate('required|integer|min:0')]
     public string $price = '';
 
+    #[Validate('required|in:standard,vip')]
+    public string $service_area = 'standard';
+
     #[Validate('required|exists:categories,id')]
     public string $category_id = '';
 
@@ -27,7 +31,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function products()
     {
-        return Product::with('category')->orderBy('name')->paginate(10);
+        return Product::with('category')->orderBy('service_area')->orderBy('name')->paginate(10);
     }
 
     public function categoryOptions()
@@ -38,6 +42,11 @@ new #[Layout('layouts.app')] class extends Component
     public function emojiSuggestions(): array
     {
         return ['🍔', '🍟', '🍗', '🍕', '🌮', '🥪', '🍿', '🥤', '☕', '🧃', '🍦', '🍩', '🍪', '🥗', '🧀', '🍳'];
+    }
+
+    public function serviceAreaOptions(): array
+    {
+        return ServiceArea::cases();
     }
 
     public function pickEmoji(string $emoji): void
@@ -52,12 +61,13 @@ new #[Layout('layouts.app')] class extends Component
         $this->name = $product->name;
         $this->emoji = $product->emoji ?? '';
         $this->price = (string) $product->price;
+        $this->service_area = $product->service_area->value;
         $this->category_id = (string) $product->category_id;
     }
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'emoji', 'price', 'category_id']);
+        $this->reset(['editingId', 'name', 'emoji', 'price', 'service_area', 'category_id']);
     }
 
     public function save(): void
@@ -68,6 +78,7 @@ new #[Layout('layouts.app')] class extends Component
             'name' => $this->name,
             'emoji' => $this->emoji ?: null,
             'price' => (int) $this->price,
+            'service_area' => $this->service_area,
             'category_id' => (int) $this->category_id,
         ];
 
@@ -77,7 +88,7 @@ new #[Layout('layouts.app')] class extends Component
             Product::create($data);
         }
 
-        $this->reset(['editingId', 'name', 'emoji', 'price', 'category_id']);
+        $this->reset(['editingId', 'name', 'emoji', 'price', 'service_area', 'category_id']);
     }
 
     public function toggleActive(int $id): void
@@ -97,7 +108,7 @@ new #[Layout('layouts.app')] class extends Component
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Produits</h2>
 
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
-            <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
                 <div>
                     <x-input-label for="name" value="Nom du produit" />
                     <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
@@ -121,6 +132,15 @@ new #[Layout('layouts.app')] class extends Component
                     <x-input-error :messages="$errors->get('price')" class="mt-2" />
                 </div>
                 <div>
+                    <x-input-label for="service_area" value="Zone" />
+                    <select wire:model="service_area" id="service_area" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                        @foreach ($this->serviceAreaOptions() as $serviceArea)
+                            <option value="{{ $serviceArea->value }}">{{ $serviceArea->label() }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error :messages="$errors->get('service_area')" class="mt-2" />
+                </div>
+                <div>
                     <x-input-label for="category_id" value="Catégorie" />
                     <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="">-- Choisir --</option>
@@ -130,7 +150,7 @@ new #[Layout('layouts.app')] class extends Component
                     </select>
                     <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
                 </div>
-                <div class="sm:col-span-4 flex gap-3">
+                <div class="sm:col-span-5 flex gap-3">
                     <x-primary-button>{{ $editingId ? 'Mettre à jour' : 'Ajouter' }}</x-primary-button>
                     @if ($editingId)
                         <button type="button" wire:click="cancelEdit" class="text-sm text-gray-600 dark:text-gray-400 underline">Annuler</button>
@@ -145,6 +165,7 @@ new #[Layout('layouts.app')] class extends Component
                     <tr>
                         <th class="px-6 py-3">Nom</th>
                         <th class="px-6 py-3">Catégorie</th>
+                        <th class="px-6 py-3">Zone</th>
                         <th class="px-6 py-3">Prix</th>
                         <th class="px-6 py-3">Statut</th>
                         <th class="px-6 py-3"></th>
@@ -157,6 +178,7 @@ new #[Layout('layouts.app')] class extends Component
                                 <span class="text-lg mr-1">{{ $product->emoji }}</span>{{ $product->name }}
                             </td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $product->category?->name }}</td>
+                            <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $product->service_area->label() }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format($product->price, 0, ',', ' ') }} FCFA</td>
                             <td class="px-6 py-3">
                                 <button wire:click="toggleActive({{ $product->id }})" class="text-sm {{ $product->is_active ? 'text-green-600' : 'text-gray-400' }}">

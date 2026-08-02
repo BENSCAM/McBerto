@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
+use App\Enums\ServiceArea;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -116,7 +117,36 @@ class DatabaseSeeder extends Seeder
 
             foreach ($items as [$name, $price, $emoji]) {
                 $products->push(Product::firstOrCreate(
-                    ['category_id' => $category->id, 'name' => $name],
+                    ['category_id' => $category->id, 'name' => $name, 'service_area' => ServiceArea::Standard],
+                    ['emoji' => $emoji, 'price' => $price]
+                ));
+            }
+        }
+
+        $vipCatalog = [
+            'Menus' => [
+                ['Menu VIP Big McBerto', 5200, '🍽️'],
+                ['Menu VIP Chicken Deluxe', 4500, '🍽️'],
+            ],
+            'Burgers' => [
+                ['Burger Signature VIP', 4200, '🍔'],
+                ['Double Beef VIP', 3900, '🍔'],
+            ],
+            'Boissons' => [
+                ['Cocktail Maison VIP', 1800, '🧃'],
+                ['Jus naturel VIP', 1200, '🧃'],
+            ],
+            'Desserts' => [
+                ['Dessert Signature VIP', 1800, '🍰'],
+            ],
+        ];
+
+        foreach ($vipCatalog as $categoryName => $items) {
+            $category = Category::firstOrCreate(['name' => $categoryName]);
+
+            foreach ($items as [$name, $price, $emoji]) {
+                $products->push(Product::firstOrCreate(
+                    ['category_id' => $category->id, 'name' => $name, 'service_area' => ServiceArea::Vip],
                     ['emoji' => $emoji, 'price' => $price]
                 ));
             }

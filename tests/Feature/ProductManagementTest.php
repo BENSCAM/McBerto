@@ -36,6 +36,28 @@ class ProductManagementTest extends TestCase
             'name' => 'Cheeseburger',
             'price' => 1500,
             'category_id' => $category->id,
+            'service_area' => 'standard',
+        ]);
+    }
+
+    public function test_manager_can_create_a_vip_product(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->set('name', 'Burger Signature VIP')
+            ->set('price', '4200')
+            ->set('service_area', 'vip')
+            ->set('category_id', (string) $category->id)
+            ->call('save');
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Burger Signature VIP',
+            'price' => 4200,
+            'category_id' => $category->id,
+            'service_area' => 'vip',
         ]);
     }
 

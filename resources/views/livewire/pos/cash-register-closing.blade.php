@@ -51,6 +51,18 @@
                     </div>
                 </dl>
 
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div class="font-medium text-gray-800 dark:text-gray-200 mb-2">Répartition par zone</div>
+                    <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach ($this->existingServiceAreaTotals as $area)
+                            <div class="flex justify-between py-2">
+                                <dt class="text-gray-600 dark:text-gray-400">{{ $area['label'] }} ({{ $area['count'] }} ventes)</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">{{ number_format($area['total'], 0, ',', ' ') }} FCFA</dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </div>
+
                 @if (auth()->user()->isAtLeastManager())
                     <button
                         x-on:click="$store.confirmModal.open('Réouvrir la caisse ? Les caissiers pourront de nouveau encaisser des ventes aujourd\'hui, et il faudra refaire une clôture complète plus tard.', () => $wire.reopen())"
@@ -84,6 +96,18 @@
                         <dd class="text-gray-900 dark:text-gray-100">{{ number_format($pendingTotal, 0, ',', ' ') }} FCFA</dd>
                     </div>
                 </dl>
+
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div class="font-medium text-gray-800 dark:text-gray-200 mb-2">Répartition par zone</div>
+                    <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach ($pendingServiceAreaTotals as $area)
+                            <div class="flex justify-between py-2">
+                                <dt class="text-gray-600 dark:text-gray-400">{{ $area['label'] }} ({{ $area['count'] }} ventes)</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">{{ number_format($area['total'], 0, ',', ' ') }} FCFA</dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </div>
 
                 @if ($pendingCount > 0)
                     <div class="border-t border-gray-200 dark:border-gray-700 pt-4">

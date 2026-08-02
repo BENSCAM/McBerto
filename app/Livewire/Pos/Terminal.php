@@ -3,6 +3,7 @@
 namespace App\Livewire\Pos;
 
 use App\Enums\PaymentMethod;
+use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
@@ -17,6 +18,8 @@ use Livewire\Component;
 class Terminal extends Component
 {
     public ?int $activeCategoryId = null;
+
+    public string $activeServiceArea = 'standard';
 
     public string $search = '';
 
@@ -34,7 +37,7 @@ class Terminal extends Component
 
     public string $amountGiven = '';
 
-    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
+    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
     public ?array $lastSaleReceipt = null;
 
     public function mount(): void
@@ -67,9 +70,34 @@ class Terminal extends Component
     protected function categories()
     {
         return Category::where('is_active', true)
-            ->with(['products' => fn ($q) => $q->where('is_active', true)->orderBy('name')])
+            ->whereHas('products', fn ($q) => $q
+                ->where('is_active', true)
+                ->where('service_area', $this->activeServiceArea))
+            ->with(['products' => fn ($q) => $q
+                ->where('is_active', true)
+                ->where('service_area', $this->activeServiceArea)
+                ->orderBy('name')])
             ->orderBy('name')
             ->get();
+    }
+
+    public function serviceAreaOptions(): array
+    {
+        return ServiceArea::cases();
+    }
+
+    public function selectServiceArea(string $serviceArea): void
+    {
+        ServiceArea::from($serviceArea);
+
+        if ($this->activeServiceArea === $serviceArea) {
+            return;
+        }
+
+        $this->activeServiceArea = $serviceArea;
+        $this->cart = [];
+        $this->search = '';
+        $this->activeCategoryId = $this->categories()->first()?->id;
     }
 
     public function selectCategory(int $categoryId): void
@@ -94,6 +122,7 @@ class Terminal extends Component
     {
         if (trim($this->search) !== '') {
             return Product::where('is_active', true)
+                ->where('service_area', $this->activeServiceArea)
                 ->where('name', 'like', '%'.$this->search.'%')
                 ->orderBy('name')
                 ->get();
@@ -108,7 +137,7 @@ class Terminal extends Component
             return;
         }
 
-        $product = Product::findOrFail($productId);
+        $product = Product::where('service_area', $this->activeServiceArea)->findOrFail($productId);
 
         if (isset($this->cart[$productId])) {
             $this->cart[$productId]['quantity']++;
@@ -253,12 +282,14 @@ class Terminal extends Component
         }
 
         $method = PaymentMethod::from($paymentMethod);
+        $serviceArea = ServiceArea::from($this->activeServiceArea);
         $total = $this->cartTotal();
 
-        $saleId = DB::transaction(function () use ($method, $total, $amountGiven, $changeDue) {
+        $saleId = DB::transaction(function () use ($method, $serviceArea, $total, $amountGiven, $changeDue) {
             $sale = Sale::create([
                 'user_id' => Auth::id(),
                 'payment_method' => $method,
+                'service_area' => $serviceArea,
                 'total_amount' => $total,
                 'amount_given' => $amountGiven,
                 'change_due' => $changeDue,
@@ -283,6 +314,7 @@ class Terminal extends Component
             'items' => $this->cart,
             'total' => $total,
             'payment_method' => $method,
+            'service_area' => $serviceArea,
             'created_at' => now(),
             'cashier' => Auth::user()->name,
             'amount_given' => $amountGiven,

@@ -117,6 +117,66 @@ class PosTerminalTest extends TestCase
         $this->assertSame($cola->id, $visible->first()->id);
     }
 
+    public function test_pos_filters_products_by_selected_service_area(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $standardProduct = Product::factory()->create(['category_id' => $category->id, 'name' => 'Cheeseburger', 'service_area' => 'standard']);
+        $vipProduct = Product::factory()->create(['category_id' => $category->id, 'name' => 'Burger Signature VIP', 'service_area' => 'vip']);
+
+        $component = Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class);
+
+        $standardVisible = $component->instance()->visibleProducts();
+        $this->assertTrue($standardVisible->contains('id', $standardProduct->id));
+        $this->assertFalse($standardVisible->contains('id', $vipProduct->id));
+
+        $component->call('selectServiceArea', 'vip');
+
+        $vipVisible = $component->instance()->visibleProducts();
+        $this->assertFalse($vipVisible->contains('id', $standardProduct->id));
+        $this->assertTrue($vipVisible->contains('id', $vipProduct->id));
+    }
+
+    public function test_cashier_can_complete_a_vip_sale_with_vip_product_price(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create([
+            'category_id' => $category->id,
+            'name' => 'Burger Signature VIP',
+            'price' => 4200,
+            'service_area' => 'vip',
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('selectServiceArea', 'vip')
+            ->call('addToCart', $product->id)
+            ->call('completeSale', 'cash')
+            ->assertSet('lastSaleReceipt.total', 4200)
+            ->assertSet('lastSaleReceipt.service_area', \App\Enums\ServiceArea::Vip);
+
+        $this->assertDatabaseHas('sales', [
+            'user_id' => $cashier->id,
+            'service_area' => 'vip',
+            'total_amount' => 4200,
+        ]);
+    }
+
+    public function test_switching_service_area_clears_the_cart(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'service_area' => 'standard']);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('selectServiceArea', 'vip')
+            ->assertSet('cart', []);
+    }
+
     public function test_clearing_search_restores_category_browsing(): void
     {
         $cashier = User::factory()->cashier()->create();

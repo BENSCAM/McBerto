@@ -6,14 +6,28 @@
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Caisse</h2>
 
             @unless ($this->todayClosing)
-                <div class="relative w-full sm:w-64">
-                    <input
-                        type="text"
-                        wire:model.live.debounce.300ms="search"
-                        placeholder="Rechercher un produit…"
-                        class="w-full pl-9 pr-3 py-2 text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
-                    >
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔎</span>
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+                        @foreach ($this->serviceAreaOptions() as $serviceArea)
+                            <button
+                                type="button"
+                                wire:click="selectServiceArea('{{ $serviceArea->value }}')"
+                                wire:loading.attr="disabled"
+                                wire:target="selectServiceArea"
+                                class="px-3 py-1.5 rounded text-sm font-medium {{ $activeServiceArea === $serviceArea->value ? 'bg-brand-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
+                            >{{ $serviceArea->label() }}</button>
+                        @endforeach
+                    </div>
+
+                    <div class="relative w-full sm:w-64">
+                        <input
+                            type="text"
+                            wire:model.live.debounce.300ms="search"
+                            placeholder="Rechercher un produit…"
+                            class="w-full pl-9 pr-3 py-2 text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
+                        >
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔎</span>
+                    </div>
                 </div>
             @endunless
         </div>
@@ -178,6 +192,7 @@
                                 <div class="flex items-center justify-between py-2 text-sm" wire:key="recent-sale-{{ $sale->id }}">
                                     <span class="text-gray-500 dark:text-gray-400 w-12 shrink-0">{{ $sale->created_at->format('H:i') }}</span>
                                     <span class="text-gray-700 dark:text-gray-300 flex-1 truncate">{{ $sale->user->name }}</span>
+                                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0">{{ $sale->service_area->label() }}</span>
                                     <span class="text-gray-900 dark:text-gray-100 font-medium shrink-0">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
                                 </div>
                             @endforeach
@@ -204,7 +219,7 @@
                     @if ($checkoutMethod === 'cash')
                         <!-- Cash: amount given / change due -->
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">Paiement en espèces</h3>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">Total à payer : <span class="font-semibold">{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span></p>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">{{ \App\Enums\ServiceArea::from($activeServiceArea)->label() }} · Total à payer : <span class="font-semibold">{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span></p>
 
                         <x-input-label for="amountGiven" value="Montant donné par le client" />
                         <x-text-input
@@ -259,7 +274,7 @@
                     @else
                         <!-- Payment method selection -->
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">Mode de paiement</h3>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">Total : {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</p>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">{{ \App\Enums\ServiceArea::from($activeServiceArea)->label() }} · Total : {{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</p>
 
                         <div class="space-y-2">
                             @foreach (\App\Enums\PaymentMethod::cases() as $method)
@@ -303,6 +318,7 @@
                             <div class="no-print text-green-600 text-2xl mb-1">✓</div>
                             <h3 class="font-bold text-lg text-gray-900 dark:text-gray-100">McBerto</h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Vente #{{ $lastSaleReceipt['id'] }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Zone : {{ $lastSaleReceipt['service_area']->label() }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ $lastSaleReceipt['created_at']->format('d/m/Y H:i') }} — {{ $lastSaleReceipt['cashier'] }}</p>
                         </div>
 

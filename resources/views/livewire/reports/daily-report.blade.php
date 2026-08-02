@@ -25,6 +25,18 @@
             </div>
         </div>
 
+        <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-4">
+            <div class="font-medium text-gray-800 dark:text-gray-200 mb-3">Recettes par zone</div>
+            <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+                @foreach ($this->serviceAreaOptions() as $serviceArea)
+                    <div class="flex justify-between py-2">
+                        <dt class="text-gray-600 dark:text-gray-400">{{ $serviceArea->label() }} ({{ $this->serviceAreaSalesCount($serviceArea) }} ventes)</dt>
+                        <dd class="text-gray-900 dark:text-gray-100 font-medium">{{ number_format($this->serviceAreaRevenue($serviceArea), 0, ',', ' ') }} FCFA</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </div>
+
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
             <div class="px-6 py-3 font-medium text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700">Dépenses du jour</div>
             <table class="w-full text-left">

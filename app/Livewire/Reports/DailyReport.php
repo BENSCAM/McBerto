@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Reports;
 
+use App\Enums\ServiceArea;
 use App\Models\Expense;
 use App\Models\Sale;
 use Illuminate\Support\Carbon;
@@ -61,6 +62,25 @@ class DailyReport extends Component
     public function salesCount(): int
     {
         return Sale::whereDate('created_at', $this->effectiveDate())->count();
+    }
+
+    public function serviceAreaRevenue(ServiceArea $serviceArea): int
+    {
+        return (int) Sale::whereDate('created_at', $this->effectiveDate())
+            ->where('service_area', $serviceArea)
+            ->sum('total_amount');
+    }
+
+    public function serviceAreaSalesCount(ServiceArea $serviceArea): int
+    {
+        return Sale::whereDate('created_at', $this->effectiveDate())
+            ->where('service_area', $serviceArea)
+            ->count();
+    }
+
+    public function serviceAreaOptions(): array
+    {
+        return ServiceArea::cases();
     }
 
     #[Computed]
