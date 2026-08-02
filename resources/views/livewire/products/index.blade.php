@@ -103,55 +103,74 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="py-12">
-    <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Produits</h2>
+<div class="py-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Produits</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Catalogue standard et VIP utilisé par la caisse.</p>
+            </div>
+        </div>
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
-            <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
-                <div>
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 class="font-medium text-gray-900 dark:text-gray-100">{{ $editingId ? 'Modifier le produit' : 'Créer un produit' }}</h3>
+            </div>
+
+            <form wire:submit="save" class="p-6 space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-4">
+                    <div>
                     <x-input-label for="name" value="Nom du produit" />
                     <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
                 </div>
+                    <div>
+                        <x-input-label for="emoji" value="Emoji" />
+                        <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />
+                        <x-input-error :messages="$errors->get('emoji')" class="mt-2" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <x-input-label for="price" value="Prix (FCFA)" />
+                        <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" min="0" required />
+                        <x-input-error :messages="$errors->get('price')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="service_area" value="Zone" />
+                        <select wire:model="service_area" id="service_area" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            @foreach ($this->serviceAreaOptions() as $serviceArea)
+                                <option value="{{ $serviceArea->value }}">{{ $serviceArea->label() }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('service_area')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="category_id" value="Catégorie" />
+                        <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            <option value="">-- Choisir --</option>
+                            @foreach ($this->categoryOptions() as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
+                    </div>
+                </div>
+
                 <div>
-                    <x-input-label for="emoji" value="Emoji" />
-                    <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />
-                    <div class="flex flex-wrap gap-1 mt-2">
+                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Suggestions rapides</div>
+                    <div class="flex flex-wrap gap-2">
                         @foreach ($this->emojiSuggestions() as $suggestion)
-                            <button type="button" wire:click="pickEmoji('{{ $suggestion }}')" class="text-lg leading-none w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 {{ $emoji === $suggestion ? 'ring-2 ring-brand-500' : '' }}">
+                            <button type="button" wire:click="pickEmoji('{{ $suggestion }}')" class="text-lg leading-none w-9 h-9 flex items-center justify-center rounded-md border {{ $emoji === $suggestion ? 'border-brand-500 bg-brand-50 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-brand-400' }}">
                                 {{ $suggestion }}
                             </button>
                         @endforeach
                     </div>
-                    <x-input-error :messages="$errors->get('emoji')" class="mt-2" />
                 </div>
-                <div>
-                    <x-input-label for="price" value="Prix (FCFA)" />
-                    <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" min="0" required />
-                    <x-input-error :messages="$errors->get('price')" class="mt-2" />
-                </div>
-                <div>
-                    <x-input-label for="service_area" value="Zone" />
-                    <select wire:model="service_area" id="service_area" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
-                        @foreach ($this->serviceAreaOptions() as $serviceArea)
-                            <option value="{{ $serviceArea->value }}">{{ $serviceArea->label() }}</option>
-                        @endforeach
-                    </select>
-                    <x-input-error :messages="$errors->get('service_area')" class="mt-2" />
-                </div>
-                <div>
-                    <x-input-label for="category_id" value="Catégorie" />
-                    <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
-                        <option value="">-- Choisir --</option>
-                        @foreach ($this->categoryOptions() as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
-                        @endforeach
-                    </select>
-                    <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
-                </div>
-                <div class="sm:col-span-5 flex gap-3">
-                    <x-primary-button>{{ $editingId ? 'Mettre à jour' : 'Ajouter' }}</x-primary-button>
+
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                    <x-primary-button>{{ $editingId ? 'Mettre à jour le produit' : 'Ajouter le produit' }}</x-primary-button>
                     @if ($editingId)
                         <button type="button" wire:click="cancelEdit" class="text-sm text-gray-600 dark:text-gray-400 underline">Annuler</button>
                     @endif
@@ -159,7 +178,8 @@ new #[Layout('layouts.app')] class extends Component
             </form>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="overflow-x-auto">
             <table class="w-full text-left">
                 <thead class="bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
                     <tr>
@@ -178,10 +198,12 @@ new #[Layout('layouts.app')] class extends Component
                                 <span class="text-lg mr-1">{{ $product->emoji }}</span>{{ $product->name }}
                             </td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $product->category?->name }}</td>
-                            <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $product->service_area->label() }}</td>
+                            <td class="px-6 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $product->service_area === \App\Enums\ServiceArea::Vip ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $product->service_area->label() }}</span>
+                            </td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format($product->price, 0, ',', ' ') }} FCFA</td>
                             <td class="px-6 py-3">
-                                <button wire:click="toggleActive({{ $product->id }})" class="text-sm {{ $product->is_active ? 'text-green-600' : 'text-gray-400' }}">
+                                <button wire:click="toggleActive({{ $product->id }})" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $product->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300' }}">
                                     {{ $product->is_active ? 'Actif' : 'Inactif' }}
                                 </button>
                             </td>
@@ -193,6 +215,7 @@ new #[Layout('layouts.app')] class extends Component
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
 
         {{ $this->products()->links() }}

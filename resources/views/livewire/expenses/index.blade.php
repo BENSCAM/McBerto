@@ -55,13 +55,21 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="py-12">
-    <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Dépenses</h2>
+<div class="py-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div>
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Dépenses</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Saisie des sorties d'argent à prendre en compte dans le rapport journalier.</p>
+        </div>
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
-            <form wire:submit="save" class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                <div>
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 class="font-medium text-gray-900 dark:text-gray-100">Nouvelle dépense</h3>
+            </div>
+
+            <form wire:submit="save" class="p-6 space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
                     <x-input-label for="category" value="Catégorie" />
                     <select wire:model="category" id="category" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="">-- Choisir --</option>
@@ -71,28 +79,32 @@ new #[Layout('layouts.app')] class extends Component
                     </select>
                     <x-input-error :messages="$errors->get('category')" class="mt-2" />
                 </div>
-                <div>
-                    <x-input-label for="amount" value="Montant (FCFA)" />
-                    <x-text-input wire:model="amount" id="amount" class="block mt-1 w-full" type="number" min="0" required />
-                    <x-input-error :messages="$errors->get('amount')" class="mt-2" />
+                    <div>
+                        <x-input-label for="amount" value="Montant (FCFA)" />
+                        <x-text-input wire:model="amount" id="amount" class="block mt-1 w-full" type="number" min="0" required />
+                        <x-input-error :messages="$errors->get('amount')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="expense_date" value="Date" />
+                        <x-text-input wire:model="expense_date" id="expense_date" class="block mt-1 w-full" type="date" required />
+                        <x-input-error :messages="$errors->get('expense_date')" class="mt-2" />
+                    </div>
                 </div>
-                <div>
-                    <x-input-label for="expense_date" value="Date" />
-                    <x-text-input wire:model="expense_date" id="expense_date" class="block mt-1 w-full" type="date" required />
-                    <x-input-error :messages="$errors->get('expense_date')" class="mt-2" />
-                </div>
+
                 <div>
                     <x-input-label for="description" value="Description" />
                     <x-text-input wire:model="description" id="description" class="block mt-1 w-full" type="text" />
                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
                 </div>
-                <div class="sm:col-span-4">
+
+                <div class="flex items-center gap-3 pt-2">
                     <x-primary-button>Ajouter la dépense</x-primary-button>
                 </div>
             </form>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="overflow-x-auto">
             <table class="w-full text-left">
                 <thead class="bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
                     <tr>
@@ -119,6 +131,7 @@ new #[Layout('layouts.app')] class extends Component
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
 
         {{ $this->expenses()->links() }}

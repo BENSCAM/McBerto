@@ -99,6 +99,79 @@ class ProductManagementTest extends TestCase
         ]);
     }
 
+    public function test_manager_can_update_a_product_including_vip_zone(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $oldCategory = Category::factory()->create();
+        $newCategory = Category::factory()->create();
+        $product = Product::factory()->create([
+            'category_id' => $oldCategory->id,
+            'name' => 'Ancien burger',
+            'price' => 1500,
+            'service_area' => 'standard',
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('edit', $product->id)
+            ->assertSet('editingId', $product->id)
+            ->assertSet('service_area', 'standard')
+            ->set('name', 'Burger Signature VIP')
+            ->set('emoji', '🍔')
+            ->set('price', '4200')
+            ->set('service_area', 'vip')
+            ->set('category_id', (string) $newCategory->id)
+            ->call('save')
+            ->assertSet('editingId', null);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'name' => 'Burger Signature VIP',
+            'emoji' => '🍔',
+            'price' => 4200,
+            'category_id' => $newCategory->id,
+            'service_area' => 'vip',
+        ]);
+    }
+
+    public function test_manager_can_toggle_product_active_status(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create(['is_active' => true]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('toggleActive', $product->id);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'is_active' => false,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('toggleActive', $product->id);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_manager_can_soft_delete_a_product(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create();
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('delete', $product->id);
+
+        $this->assertSoftDeleted('products', [
+            'id' => $product->id,
+        ]);
+    }
+
     public function test_products_list_is_paginated(): void
     {
         $manager = User::factory()->manager()->create();

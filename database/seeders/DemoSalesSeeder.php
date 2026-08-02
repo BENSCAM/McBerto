@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\PaymentMethod;
+use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing;
 use App\Models\Expense;
 use App\Models\Sale;
@@ -25,14 +26,20 @@ class DemoSalesSeeder
         for ($daysAgo = self::DAYS_OF_HISTORY; $daysAgo >= 1; $daysAgo--) {
             $day = Carbon::today()->subDays($daysAgo);
 
+            if (CashRegisterClosing::whereDate('closing_date', $day)->exists()) {
+                continue;
+            }
+
             $sales = $this->seedSalesForDay($day, $cashiers, $products);
             $this->closeRegisterForDay($day, $sales, $cashiers->first());
             $this->maybeSeedExpenseForDay($day, $manager);
         }
 
         // Today stays open (no closing) so the closing flow can be exercised live.
-        $this->seedSalesForDay(Carbon::today(), $cashiers, $products);
-        $this->maybeSeedExpenseForDay(Carbon::today(), $manager);
+        if (! Sale::whereDate('created_at', Carbon::today())->exists()) {
+            $this->seedSalesForDay(Carbon::today(), $cashiers, $products);
+            $this->maybeSeedExpenseForDay(Carbon::today(), $manager);
+        }
     }
 
     protected function seedSalesForDay(Carbon $day, Collection $cashiers, Collection $products): Collection
@@ -43,12 +50,22 @@ class DemoSalesSeeder
         for ($i = 0; $i < $salesCount; $i++) {
             $time = $day->copy()->setTime(random_int(7, 21), random_int(0, 59));
             $cashier = $cashiers->random();
+            $serviceArea = ServiceArea::cases()[array_rand(ServiceArea::cases())];
+            $availableProducts = $products
+                ->filter(fn ($product) => $product->service_area === $serviceArea)
+                ->values();
+
+            if ($availableProducts->isEmpty()) {
+                $availableProducts = $products;
+            }
+
             $itemCount = random_int(1, 4);
-            $lines = $products->random(min($itemCount, $products->count()));
+            $lines = $availableProducts->random(min($itemCount, $availableProducts->count()));
 
             $sale = new Sale([
                 'user_id' => $cashier->id,
                 'payment_method' => $this->randomPaymentMethod(),
+                'service_area' => $serviceArea,
                 'total_amount' => 0,
             ]);
             $sale->created_at = $time;
@@ -118,6 +135,10 @@ class DemoSalesSeeder
 
     protected function maybeSeedExpenseForDay(Carbon $day, User $manager): void
     {
+        if (Expense::whereDate('expense_date', $day)->exists()) {
+            return;
+        }
+
         // ~60% of days get a recorded expense, to keep the demo data realistic without being uniform.
         if (random_int(1, 100) > 60) {
             return;
