@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing;
 use App\Models\Expense;
@@ -63,9 +64,11 @@ class DemoSalesSeeder
             $lines = $availableProducts->random(min($itemCount, $availableProducts->count()));
 
             $sale = new Sale([
+                'receipt_number' => Sale::nextReceiptNumber($time),
                 'user_id' => $cashier->id,
                 'payment_method' => $this->randomPaymentMethod(),
                 'service_area' => $serviceArea,
+                'sale_status' => SaleStatus::Completed,
                 'total_amount' => 0,
             ]);
             $sale->created_at = $time;

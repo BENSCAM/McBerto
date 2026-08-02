@@ -66,8 +66,8 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach ($this->users() as $user)
-                        <tr wire:key="user-{{ $user->id }}">
+                    @forelse ($this->users() as $user)
+                        <tr wire:key="user-{{ $user->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $user->name }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $user->email }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $user->role->label() }}</td>
@@ -77,12 +77,19 @@
                                 </span>
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="text-sm text-brand-600 dark:text-brand-400">
+                                <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">
                                     {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
                                 </button>
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-6 py-10 text-center">
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucun utilisateur enregistré</div>
+                                <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Créez un compte pour donner accès à l'application.</div>
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             </div>

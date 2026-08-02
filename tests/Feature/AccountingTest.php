@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Livewire\Reports\DailyReport;
 use App\Models\Expense;
 use App\Models\Sale;
@@ -39,6 +40,56 @@ class AccountingTest extends TestCase
         ]);
     }
 
+    public function test_manager_can_update_an_expense(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $expense = Expense::factory()->create([
+            'user_id' => $manager->id,
+            'category' => 'charges',
+            'description' => 'Ancienne description',
+            'amount' => 15000,
+            'expense_date' => now()->format('Y-m-d'),
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('expenses.index')
+            ->call('edit', $expense->id)
+            ->assertSet('editingId', $expense->id)
+            ->set('category', 'matieres_premieres')
+            ->set('description', 'Achat ingrédients')
+            ->set('amount', '27500')
+            ->set('expense_date', now()->subDay()->format('Y-m-d'))
+            ->call('save')
+            ->assertSet('editingId', null);
+
+        $this->assertDatabaseHas('expenses', [
+            'id' => $expense->id,
+            'category' => 'matieres_premieres',
+            'description' => 'Achat ingrédients',
+            'amount' => 27500,
+            'expense_date' => now()->subDay()->startOfDay()->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function test_manager_can_cancel_expense_editing(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $expense = Expense::factory()->create([
+            'user_id' => $manager->id,
+            'category' => 'charges',
+            'amount' => 15000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('expenses.index')
+            ->call('edit', $expense->id)
+            ->assertSet('editingId', $expense->id)
+            ->call('cancelEdit')
+            ->assertSet('editingId', null)
+            ->assertSet('category', '')
+            ->assertSet('amount', '');
+    }
+
     public function test_daily_report_computes_revenue_expenses_and_net_profit(): void
     {
         $owner = User::factory()->owner()->create();
@@ -46,6 +97,7 @@ class AccountingTest extends TestCase
 
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 10000]);
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 5000]);
+        Sale::factory()->create(['user_id' => $cashier->id, 'sale_status' => SaleStatus::Canceled, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 7000]);
         Expense::factory()->create(['expense_date' => now()->format('Y-m-d'), 'amount' => 4000]);
 
         // A sale/expense from yesterday must not leak into today's report.

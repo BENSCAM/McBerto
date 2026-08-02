@@ -100,8 +100,8 @@ new #[Layout('layouts.app')] class extends Component
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach ($this->categories() as $category)
-                        <tr wire:key="category-{{ $category->id }}">
+                    @forelse ($this->categories() as $category)
+                        <tr wire:key="category-{{ $category->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $category->name }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $category->products_count }}</td>
                             <td class="px-6 py-3">
@@ -110,11 +110,18 @@ new #[Layout('layouts.app')] class extends Component
                                 </button>
                             </td>
                             <td class="px-6 py-3 text-right space-x-3">
-                                <button wire:click="edit({{ $category->id }})" class="text-sm text-brand-600 dark:text-brand-400">Modifier</button>
-                                <button x-on:click="$store.confirmModal.open('Supprimer cette catégorie ?', () => $wire.delete({{ $category->id }}))" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
+                                <button wire:click="edit({{ $category->id }})" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">Modifier</button>
+                                <button x-on:click="$store.confirmModal.open('Supprimer cette catégorie ?', () => $wire.delete({{ $category->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-6 py-10 text-center">
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune catégorie enregistrée</div>
+                                <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Créez une catégorie pour organiser les produits de la caisse.</div>
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             </div>

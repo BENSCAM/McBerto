@@ -3,6 +3,7 @@
 namespace App\Livewire\Pos;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
@@ -37,7 +38,7 @@ class Terminal extends Component
 
     public string $amountGiven = '';
 
-    /** @var array{id: int, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
+    /** @var array{id: int, receipt_number: string, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
     public ?array $lastSaleReceipt = null;
 
     public function mount(): void
@@ -211,10 +212,36 @@ class Terminal extends Component
     public function recentSales()
     {
         return Sale::whereDate('created_at', now())
-            ->with('user')
+            ->with(['user', 'canceledBy'])
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();
+    }
+
+    public function cancelSale(int $saleId): void
+    {
+        if ($this->todayClosing) {
+            return;
+        }
+
+        $sale = Sale::whereDate('created_at', now())->findOrFail($saleId);
+
+        if ($sale->sale_status === SaleStatus::Canceled || $sale->cash_register_closing_id !== null) {
+            return;
+        }
+
+        if (! Auth::user()->isAtLeastManager() && $sale->user_id !== Auth::id()) {
+            return;
+        }
+
+        $sale->update([
+            'sale_status' => SaleStatus::Canceled,
+            'canceled_by' => Auth::id(),
+            'canceled_at' => now(),
+            'cancellation_reason' => 'Annulation depuis la caisse',
+        ]);
+
+        unset($this->recentSales);
     }
 
     public function openCheckout(): void
@@ -285,11 +312,13 @@ class Terminal extends Component
         $serviceArea = ServiceArea::from($this->activeServiceArea);
         $total = $this->cartTotal();
 
-        $saleId = DB::transaction(function () use ($method, $serviceArea, $total, $amountGiven, $changeDue) {
+        $sale = DB::transaction(function () use ($method, $serviceArea, $total, $amountGiven, $changeDue) {
             $sale = Sale::create([
+                'receipt_number' => Sale::nextReceiptNumber(),
                 'user_id' => Auth::id(),
                 'payment_method' => $method,
                 'service_area' => $serviceArea,
+                'sale_status' => SaleStatus::Completed,
                 'total_amount' => $total,
                 'amount_given' => $amountGiven,
                 'change_due' => $changeDue,
@@ -306,11 +335,12 @@ class Terminal extends Component
                 ]);
             }
 
-            return $sale->id;
+            return $sale;
         });
 
         $this->lastSaleReceipt = [
-            'id' => $saleId,
+            'id' => $sale->id,
+            'receipt_number' => $sale->receipt_number,
             'items' => $this->cart,
             'total' => $total,
             'payment_method' => $method,

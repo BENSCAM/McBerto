@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Livewire\Dashboard\Overview;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
@@ -31,6 +32,7 @@ class DashboardTest extends TestCase
 
         Sale::factory()->create(['total_amount' => 4000]);
         Sale::factory()->create(['total_amount' => 6000]);
+        Sale::factory()->create(['sale_status' => SaleStatus::Canceled, 'total_amount' => 9000]);
 
         Livewire::actingAs($manager)
             ->test(Overview::class)

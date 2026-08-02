@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -169,6 +171,33 @@ class ProductManagementTest extends TestCase
 
         $this->assertSoftDeleted('products', [
             'id' => $product->id,
+        ]);
+    }
+
+    public function test_product_used_in_sales_is_deactivated_instead_of_deleted(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create(['is_active' => true]);
+        $sale = Sale::factory()->create(['user_id' => $manager->id]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'unit_price' => $product->price,
+            'quantity' => 1,
+            'subtotal' => $product->price,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('delete', $product->id)
+            ->assertSet('notice', 'Ce produit a déjà été vendu. Il a été désactivé pour conserver l’historique des ventes.');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'is_active' => false,
+            'deleted_at' => null,
         ]);
     }
 

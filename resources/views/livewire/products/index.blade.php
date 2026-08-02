@@ -29,6 +29,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public ?int $editingId = null;
 
+    public ?string $notice = null;
+
     public function products()
     {
         return Product::with('category')->orderBy('service_area')->orderBy('name')->paginate(10);
@@ -73,6 +75,7 @@ new #[Layout('layouts.app')] class extends Component
     public function save(): void
     {
         $this->validate();
+        $this->notice = null;
 
         $data = [
             'name' => $this->name,
@@ -93,13 +96,24 @@ new #[Layout('layouts.app')] class extends Component
 
     public function toggleActive(int $id): void
     {
+        $this->notice = null;
         $product = Product::findOrFail($id);
         $product->update(['is_active' => ! $product->is_active]);
     }
 
     public function delete(int $id): void
     {
-        Product::findOrFail($id)->delete();
+        $product = Product::findOrFail($id);
+
+        if ($product->saleItems()->exists()) {
+            $product->update(['is_active' => false]);
+            $this->notice = 'Ce produit a déjà été vendu. Il a été désactivé pour conserver l’historique des ventes.';
+
+            return;
+        }
+
+        $product->delete();
+        $this->notice = 'Produit supprimé.';
     }
 }; ?>
 
@@ -111,6 +125,12 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Catalogue standard et VIP utilisé par la caisse.</p>
             </div>
         </div>
+
+        @if ($notice)
+            <div class="rounded-md bg-blue-50 dark:bg-blue-900 p-3 text-blue-800 dark:text-blue-100 text-sm">
+                {{ $notice }}
+            </div>
+        @endif
 
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
@@ -192,8 +212,8 @@ new #[Layout('layouts.app')] class extends Component
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach ($this->products() as $product)
-                        <tr wire:key="product-{{ $product->id }}">
+                    @forelse ($this->products() as $product)
+                        <tr wire:key="product-{{ $product->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">
                                 <span class="text-lg mr-1">{{ $product->emoji }}</span>{{ $product->name }}
                             </td>
@@ -208,11 +228,18 @@ new #[Layout('layouts.app')] class extends Component
                                 </button>
                             </td>
                             <td class="px-6 py-3 text-right space-x-3">
-                                <button wire:click="edit({{ $product->id }})" class="text-sm text-brand-600 dark:text-brand-400">Modifier</button>
-                                <button x-on:click="$store.confirmModal.open('Supprimer ce produit ?', () => $wire.delete({{ $product->id }}))" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
+                                <button wire:click="edit({{ $product->id }})" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">Modifier</button>
+                                <button x-on:click="$store.confirmModal.open('Supprimer ce produit ? S’il a déjà été vendu, il sera désactivé pour préserver l’historique.', () => $wire.delete({{ $product->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-10 text-center">
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucun produit enregistré</div>
+                                <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajoutez un produit standard ou VIP pour alimenter la caisse.</div>
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             </div>

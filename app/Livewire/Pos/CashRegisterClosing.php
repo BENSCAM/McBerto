@@ -50,6 +50,7 @@ class CashRegisterClosing extends Component
         }
 
         $pendingSales = Sale::whereNull('cash_register_closing_id')
+            ->completed()
             ->whereDate('created_at', $today)
             ->get();
 
@@ -80,7 +81,7 @@ class CashRegisterClosing extends Component
             return [];
         }
 
-        $sales = $this->existingClosing->sales;
+        $sales = $this->existingClosing->sales->where('sale_status', \App\Enums\SaleStatus::Completed);
 
         return collect(ServiceArea::cases())
             ->mapWithKeys(fn (ServiceArea $serviceArea) => [
@@ -116,6 +117,7 @@ class CashRegisterClosing extends Component
 
         DB::transaction(function () use ($today, $counted) {
             $pendingSales = Sale::whereNull('cash_register_closing_id')
+                ->completed()
                 ->whereDate('created_at', $today)
                 ->get();
 
@@ -135,6 +137,7 @@ class CashRegisterClosing extends Component
             ]);
 
             Sale::whereNull('cash_register_closing_id')
+                ->completed()
                 ->whereDate('created_at', $today)
                 ->update(['cash_register_closing_id' => $closing->id]);
         });

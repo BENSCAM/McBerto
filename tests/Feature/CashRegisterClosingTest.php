@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +20,7 @@ class CashRegisterClosingTest extends TestCase
 
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 1000]);
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::OrangeMoney, 'total_amount' => 2000]);
+        Sale::factory()->create(['user_id' => $cashier->id, 'sale_status' => SaleStatus::Canceled, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 9000]);
 
         Livewire::actingAs($cashier)
             ->test(\App\Livewire\Pos\CashRegisterClosing::class)
@@ -38,7 +40,7 @@ class CashRegisterClosingTest extends TestCase
             'closed_by' => $cashier->id,
         ]);
 
-        $this->assertDatabaseCount('sales', 2);
+        $this->assertDatabaseCount('sales', 3);
         $this->assertEquals(2, Sale::whereNotNull('cash_register_closing_id')->count());
     }
 

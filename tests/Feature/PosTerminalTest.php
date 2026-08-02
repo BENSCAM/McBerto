@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\SaleStatus;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -46,6 +48,7 @@ class PosTerminalTest extends TestCase
         $this->assertDatabaseHas('sales', [
             'user_id' => $cashier->id,
             'payment_method' => 'cash',
+            'sale_status' => 'completed',
             'total_amount' => 3000,
         ]);
 
@@ -69,6 +72,23 @@ class PosTerminalTest extends TestCase
             ->assertSet('lastSaleReceipt.id', fn ($id) => $id !== null)
             ->call('closeReceipt')
             ->assertSet('lastSaleReceipt', null);
+    }
+
+    public function test_sale_receipt_number_is_generated(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('completeSale', 'cash')
+            ->assertSet('lastSaleReceipt.receipt_number', 'MCB-'.now()->format('Ymd').'-0001');
+
+        $this->assertDatabaseHas('sales', [
+            'receipt_number' => 'MCB-'.now()->format('Ymd').'-0001',
+        ]);
     }
 
     public function test_quantity_can_be_set_directly(): void
@@ -307,6 +327,69 @@ class PosTerminalTest extends TestCase
 
         $this->assertCount(1, $recent);
         $this->assertEquals(2000, $recent->first()->total_amount);
+    }
+
+    public function test_cashier_can_cancel_own_unclosed_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => Sale::nextReceiptNumber(),
+            'total_amount' => 2000,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('cancelSale', $sale->id);
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale->id,
+            'sale_status' => SaleStatus::Canceled->value,
+            'canceled_by' => $cashier->id,
+            'cancellation_reason' => 'Annulation depuis la caisse',
+        ]);
+    }
+
+    public function test_cashier_cannot_cancel_another_cashiers_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $otherCashier = User::factory()->cashier()->create();
+        $sale = Sale::factory()->create([
+            'user_id' => $otherCashier->id,
+            'receipt_number' => Sale::nextReceiptNumber(),
+            'total_amount' => 2000,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('cancelSale', $sale->id);
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale->id,
+            'sale_status' => SaleStatus::Completed->value,
+            'canceled_by' => null,
+        ]);
+    }
+
+    public function test_manager_can_cancel_any_unclosed_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $manager = User::factory()->manager()->create();
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => Sale::nextReceiptNumber(),
+            'total_amount' => 2000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('cancelSale', $sale->id);
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale->id,
+            'sale_status' => SaleStatus::Canceled->value,
+            'canceled_by' => $manager->id,
+        ]);
     }
 
     public function test_cashier_cannot_add_to_cart_when_register_is_closed_for_today(): void

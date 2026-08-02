@@ -189,11 +189,33 @@
                     @else
                         <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
                             @foreach ($this->recentSales as $sale)
-                                <div class="flex items-center justify-between py-2 text-sm" wire:key="recent-sale-{{ $sale->id }}">
-                                    <span class="text-gray-500 dark:text-gray-400 w-12 shrink-0">{{ $sale->created_at->format('H:i') }}</span>
-                                    <span class="text-gray-700 dark:text-gray-300 flex-1 truncate">{{ $sale->user->name }}</span>
-                                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0">{{ $sale->service_area->label() }}</span>
-                                    <span class="text-gray-900 dark:text-gray-100 font-medium shrink-0">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
+                                <div class="py-2 text-sm" wire:key="recent-sale-{{ $sale->id }}">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-500 dark:text-gray-400 shrink-0">{{ $sale->created_at->format('H:i') }}</span>
+                                                <span class="text-gray-700 dark:text-gray-300 truncate">{{ $sale->receipt_number ?? 'Vente #'.$sale->id }}</span>
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ $sale->user->name }}</div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <span class="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $sale->service_area->label() }}</span>
+                                            <span class="text-xs font-medium px-2 py-0.5 rounded {{ $sale->sale_status === \App\Enums\SaleStatus::Canceled ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' }}">{{ $sale->sale_status->label() }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-1 flex items-center justify-between gap-2">
+                                        <span class="text-gray-900 dark:text-gray-100 font-medium {{ $sale->sale_status === \App\Enums\SaleStatus::Canceled ? 'line-through text-gray-400 dark:text-gray-500' : '' }}">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
+                                        @if ($sale->sale_status === \App\Enums\SaleStatus::Canceled)
+                                            <span class="text-xs text-red-600 dark:text-red-300">Annulée par {{ $sale->canceledBy?->name }}</span>
+                                        @elseif (! $sale->cash_register_closing_id && (auth()->user()->isAtLeastManager() || $sale->user_id === auth()->id()))
+                                            <button
+                                                x-on:click="$store.confirmModal.open('Annuler la vente {{ $sale->receipt_number ?? '#'.$sale->id }} ? Elle restera visible dans les historiques mais ne comptera plus dans les recettes.', () => $wire.cancelSale({{ $sale->id }}))"
+                                                wire:loading.attr="disabled"
+                                                wire:target="cancelSale"
+                                                class="text-xs text-red-600 dark:text-red-300 underline"
+                                            >Annuler</button>
+                                        @endif
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
@@ -317,7 +339,7 @@
                         <div class="text-center mb-4">
                             <div class="no-print text-green-600 text-2xl mb-1">✓</div>
                             <h3 class="font-bold text-lg text-gray-900 dark:text-gray-100">McBerto</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Vente #{{ $lastSaleReceipt['id'] }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Ticket {{ $lastSaleReceipt['receipt_number'] }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Zone : {{ $lastSaleReceipt['service_area']->label() }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ $lastSaleReceipt['created_at']->format('d/m/Y H:i') }} — {{ $lastSaleReceipt['cashier'] }}</p>
                         </div>

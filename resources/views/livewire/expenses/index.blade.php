@@ -23,6 +23,8 @@ new #[Layout('layouts.app')] class extends Component
     #[Validate('required|date')]
     public string $expense_date = '';
 
+    public ?int $editingId = null;
+
     public function mount(): void
     {
         $this->expense_date = now()->format('Y-m-d');
@@ -33,19 +35,44 @@ new #[Layout('layouts.app')] class extends Component
         return Expense::with('user')->orderByDesc('expense_date')->orderByDesc('id')->paginate(10);
     }
 
+    public function edit(int $id): void
+    {
+        $expense = Expense::findOrFail($id);
+
+        $this->editingId = $expense->id;
+        $this->category = $expense->category;
+        $this->description = $expense->description ?? '';
+        $this->amount = (string) $expense->amount;
+        $this->expense_date = $expense->expense_date->format('Y-m-d');
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->reset(['editingId', 'category', 'description', 'amount']);
+        $this->expense_date = now()->format('Y-m-d');
+    }
+
     public function save(): void
     {
         $this->validate();
 
-        Expense::create([
-            'user_id' => Auth::id(),
+        $data = [
             'category' => $this->category,
             'description' => $this->description ?: null,
             'amount' => (int) $this->amount,
             'expense_date' => $this->expense_date,
-        ]);
+        ];
 
-        $this->reset(['category', 'description', 'amount']);
+        if ($this->editingId) {
+            Expense::findOrFail($this->editingId)->update($data);
+        } else {
+            Expense::create([
+                ...$data,
+                'user_id' => Auth::id(),
+            ]);
+        }
+
+        $this->reset(['editingId', 'category', 'description', 'amount']);
         $this->expense_date = now()->format('Y-m-d');
     }
 
@@ -64,7 +91,7 @@ new #[Layout('layouts.app')] class extends Component
 
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                <h3 class="font-medium text-gray-900 dark:text-gray-100">Nouvelle dépense</h3>
+                <h3 class="font-medium text-gray-900 dark:text-gray-100">{{ $editingId ? 'Modifier la dépense' : 'Nouvelle dépense' }}</h3>
             </div>
 
             <form wire:submit="save" class="p-6 space-y-5">
@@ -98,7 +125,10 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
 
                 <div class="flex items-center gap-3 pt-2">
-                    <x-primary-button>Ajouter la dépense</x-primary-button>
+                    <x-primary-button>{{ $editingId ? 'Mettre à jour la dépense' : 'Ajouter la dépense' }}</x-primary-button>
+                    @if ($editingId)
+                        <button type="button" wire:click="cancelEdit" class="text-sm text-gray-600 dark:text-gray-400 underline">Annuler</button>
+                    @endif
                 </div>
             </form>
         </div>
@@ -117,18 +147,26 @@ new #[Layout('layouts.app')] class extends Component
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach ($this->expenses() as $expense)
-                        <tr wire:key="expense-{{ $expense->id }}">
+                    @forelse ($this->expenses() as $expense)
+                        <tr wire:key="expense-{{ $expense->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $expense->expense_date->format('d/m/Y') }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ \App\Models\Expense::CATEGORIES[$expense->category] }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $expense->description }}</td>
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ number_format($expense->amount, 0, ',', ' ') }} FCFA</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $expense->user->name }}</td>
-                            <td class="px-6 py-3 text-right">
-                                <button x-on:click="$store.confirmModal.open('Supprimer cette dépense ?', () => $wire.delete({{ $expense->id }}))" class="text-sm text-red-600 dark:text-red-400">Supprimer</button>
+                            <td class="px-6 py-3 text-right space-x-3">
+                                <button wire:click="edit({{ $expense->id }})" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">Modifier</button>
+                                <button x-on:click="$store.confirmModal.open('Supprimer cette dépense ?', () => $wire.delete({{ $expense->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-10 text-center">
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune dépense enregistrée</div>
+                                <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajoutez les sorties d'argent pour fiabiliser le rapport journalier.</div>
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             </div>

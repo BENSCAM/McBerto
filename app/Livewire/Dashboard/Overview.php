@@ -24,13 +24,13 @@ class Overview extends Component
     #[Computed]
     public function todayRevenue(): int
     {
-        return (int) Sale::whereDate('created_at', now())->sum('total_amount');
+        return (int) Sale::completed()->whereDate('created_at', now())->sum('total_amount');
     }
 
     #[Computed]
     public function todayOrdersCount(): int
     {
-        return Sale::whereDate('created_at', now())->count();
+        return Sale::completed()->whereDate('created_at', now())->count();
     }
 
     #[Computed]
@@ -56,19 +56,19 @@ class Overview extends Component
     #[Computed]
     public function yesterdayRevenue(): int
     {
-        return (int) Sale::whereDate('created_at', now()->subDay())->sum('total_amount');
+        return (int) Sale::completed()->whereDate('created_at', now()->subDay())->sum('total_amount');
     }
 
     #[Computed]
     public function yesterdayOrdersCount(): int
     {
-        return Sale::whereDate('created_at', now()->subDay())->count();
+        return Sale::completed()->whereDate('created_at', now()->subDay())->count();
     }
 
     #[Computed]
     public function yesterdayNetProfit(): int
     {
-        $revenue = (int) Sale::whereDate('created_at', now()->subDay())->sum('total_amount');
+        $revenue = (int) Sale::completed()->whereDate('created_at', now()->subDay())->sum('total_amount');
         $expenses = (int) Expense::whereDate('expense_date', now()->subDay())->sum('amount');
 
         return $revenue - $expenses;
@@ -114,7 +114,7 @@ class Overview extends Component
     #[Computed]
     public function paymentMethodBreakdown(): array
     {
-        $sales = Sale::where('created_at', '>=', $this->periodStart())->get();
+        $sales = Sale::completed()->where('created_at', '>=', $this->periodStart())->get();
         $total = $sales->sum('total_amount');
 
         return collect(PaymentMethod::cases())
@@ -139,6 +139,7 @@ class Overview extends Component
         return SaleItem::query()
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.created_at', '>=', $this->periodStart())
+            ->where('sales.sale_status', \App\Enums\SaleStatus::Completed)
             ->selectRaw('sale_items.product_name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.subtotal) as total_revenue')
             ->groupBy('sale_items.product_name')
             ->orderByDesc('total_quantity')
@@ -149,7 +150,7 @@ class Overview extends Component
     #[Computed]
     public function hourlySales(): array
     {
-        $sales = Sale::whereDate('created_at', now())->get();
+        $sales = Sale::completed()->whereDate('created_at', now())->get();
 
         $labels = [];
         $values = [];
@@ -186,7 +187,8 @@ class Overview extends Component
     {
         $start = now()->subDays($days - 1)->startOfDay();
 
-        $sales = Sale::where('created_at', '>=', $start)
+        $sales = Sale::completed()
+            ->where('created_at', '>=', $start)
             ->get()
             ->groupBy(fn ($sale) => $sale->created_at->format('Y-m-d'));
 
@@ -207,7 +209,8 @@ class Overview extends Component
     {
         $start = now()->subMonths($months - 1)->startOfMonth();
 
-        $sales = Sale::where('created_at', '>=', $start)
+        $sales = Sale::completed()
+            ->where('created_at', '>=', $start)
             ->get()
             ->groupBy(fn ($sale) => $sale->created_at->format('Y-m'));
 

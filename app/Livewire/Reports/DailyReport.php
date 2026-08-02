@@ -43,7 +43,7 @@ class DailyReport extends Component
     #[Computed]
     public function revenue(): int
     {
-        return (int) Sale::whereDate('created_at', $this->effectiveDate())->sum('total_amount');
+        return (int) Sale::completed()->whereDate('created_at', $this->effectiveDate())->sum('total_amount');
     }
 
     #[Computed]
@@ -61,19 +61,21 @@ class DailyReport extends Component
     #[Computed]
     public function salesCount(): int
     {
-        return Sale::whereDate('created_at', $this->effectiveDate())->count();
+        return Sale::completed()->whereDate('created_at', $this->effectiveDate())->count();
     }
 
     public function serviceAreaRevenue(ServiceArea $serviceArea): int
     {
-        return (int) Sale::whereDate('created_at', $this->effectiveDate())
+        return (int) Sale::completed()
+            ->whereDate('created_at', $this->effectiveDate())
             ->where('service_area', $serviceArea)
             ->sum('total_amount');
     }
 
     public function serviceAreaSalesCount(ServiceArea $serviceArea): int
     {
-        return Sale::whereDate('created_at', $this->effectiveDate())
+        return Sale::completed()
+            ->whereDate('created_at', $this->effectiveDate())
             ->where('service_area', $serviceArea)
             ->count();
     }
