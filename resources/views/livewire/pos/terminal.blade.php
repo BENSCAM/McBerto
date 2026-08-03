@@ -1,4 +1,8 @@
-<div class="py-6">
+<div
+    class="py-6"
+    x-data="offlinePos(@js($this->offlineCatalog()), '{{ route('pos.offline-sales.sync') }}')"
+    x-init="init()"
+>
     <div wire:loading.class="opacity-100" class="fixed top-0 left-0 right-0 h-1 bg-brand-600 z-50 opacity-0 transition-opacity duration-150"></div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0">
@@ -6,7 +10,7 @@
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Caisse</h2>
 
             @unless ($this->todayClosing)
-                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto" x-show="!offline">
                     <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
                         @foreach ($this->serviceAreaOptions() as $serviceArea)
                             <button
@@ -56,7 +60,129 @@
                 </div>
             </div>
         @else
-        <div class="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4 lg:h-[calc(100vh-15rem)]">
+        <div x-show="offline" x-cloak class="space-y-4">
+            <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/40 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="font-semibold text-amber-900 dark:text-amber-100">Mode hors connexion</h3>
+                        <p class="text-sm text-amber-800 dark:text-amber-100 mt-1">Les ventes sont gardées sur cet appareil et seront synchronisées dès que la connexion revient.</p>
+                    </div>
+                    <button
+                        type="button"
+                        x-show="online && pendingSales.length > 0"
+                        x-on:click="syncPending()"
+                        class="bg-brand-600 text-white rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        :disabled="syncing"
+                    >
+                        <span x-show="!syncing">Synchroniser</span>
+                        <span x-show="syncing">Synchronisation…</span>
+                    </button>
+                </div>
+                <div class="mt-3 text-sm text-amber-900 dark:text-amber-100">
+                    <span x-text="pendingSales.length"></span> vente(s) en attente.
+                    <span x-show="lastSyncMessage" x-text="lastSyncMessage" class="ml-2"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                    <div class="flex flex-wrap items-center gap-2 mb-4">
+                        <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 p-1">
+                            <template x-for="area in catalog.serviceAreas" :key="area.value">
+                                <button
+                                    type="button"
+                                    x-on:click="serviceArea = area.value; offlineCart = {}"
+                                    class="px-3 py-1.5 rounded text-sm font-medium"
+                                    :class="serviceArea === area.value ? 'bg-brand-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                                    x-text="area.label"
+                                ></button>
+                            </template>
+                        </div>
+                        <input
+                            type="text"
+                            x-model="offlineSearch"
+                            placeholder="Rechercher un produit…"
+                            class="flex-1 min-w-[220px] rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                        >
+                    </div>
+
+                    <template x-if="filteredProducts().length === 0">
+                        <div class="text-center py-12 text-sm text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                            Aucun produit disponible hors connexion pour cette recherche.
+                        </div>
+                    </template>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                        <template x-for="product in filteredProducts()" :key="product.id">
+                            <button
+                                type="button"
+                                x-on:click="addOfflineProduct(product)"
+                                class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition"
+                            >
+                                <div class="text-3xl mb-2" x-text="product.emoji || '•'"></div>
+                                <div class="font-medium text-gray-900 dark:text-gray-100 leading-snug" x-text="product.name"></div>
+                                <div class="text-sm text-brand-600 dark:text-brand-400 font-semibold mt-1" x-text="formatMoney(product.price)"></div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800 dark:text-gray-200">Panier hors ligne</h3>
+                        <button type="button" x-show="offlineCartCount() > 0" x-on:click="offlineCart = {}" class="text-xs text-red-500 dark:text-red-400 underline">Vider</button>
+                    </div>
+
+                    <template x-if="offlineCartCount() === 0">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
+                    </template>
+
+                    <div class="space-y-3 mb-4">
+                        <template x-for="item in offlineCartItems()" :key="item.product_id">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" x-text="`${item.emoji || ''} ${item.product_name}`"></div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(item.unit_price)"></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" x-on:click="decrementOffline(item.product_id)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">−</button>
+                                    <span class="w-8 text-center text-sm text-gray-800 dark:text-gray-200" x-text="item.quantity"></span>
+                                    <button type="button" x-on:click="incrementOffline(item.product_id)" class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">+</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-3">
+                        <div class="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                            <span>Total</span>
+                            <span x-text="formatMoney(offlineCartTotal())"></span>
+                        </div>
+
+                        <select x-model="offlinePaymentMethod" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
+                            <template x-for="method in catalog.paymentMethods" :key="method.value">
+                                <option :value="method.value" x-text="method.label"></option>
+                            </template>
+                        </select>
+
+                        <div x-show="offlinePaymentMethod === 'cash'">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Montant donné</label>
+                            <input type="number" min="0" x-model.number="offlineAmountGiven" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500">
+                            <p class="mt-1 text-sm" :class="offlineChangeDue() < 0 ? 'text-red-600' : 'text-green-600'" x-text="`Monnaie : ${formatMoney(offlineChangeDue())}`"></p>
+                        </div>
+
+                        <button
+                            type="button"
+                            x-on:click="queueOfflineSale()"
+                            :disabled="offlineCartCount() === 0 || (offlinePaymentMethod === 'cash' && offlineChangeDue() < 0)"
+                            class="w-full bg-brand-600 text-white rounded-md py-2 font-medium disabled:opacity-50"
+                        >Enregistrer hors ligne</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="!offline" class="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4 lg:h-[calc(100vh-15rem)]">
             <!-- Categories -->
             <div class="min-w-0 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto lg:h-full lg:min-h-0 pb-1 lg:pb-0">
                 @foreach ($this->categoriesWithProducts as $category)
@@ -392,7 +518,206 @@
         @endif
     </div>
 
+    <script>
+        function offlinePos(catalog, syncUrl) {
+            return {
+                catalog,
+                syncUrl,
+                storageKey: 'mcberto:offline-sales:v1',
+                offline: !navigator.onLine,
+                online: navigator.onLine,
+                syncing: false,
+                lastSyncMessage: '',
+                serviceArea: 'standard',
+                offlineSearch: '',
+                offlineCart: {},
+                offlinePaymentMethod: 'cash',
+                offlineAmountGiven: 0,
+                pendingSales: [],
+
+                init() {
+                    this.pendingSales = this.loadPendingSales();
+
+                    window.addEventListener('online', () => {
+                        this.online = true;
+                        this.offline = false;
+                        this.syncPending();
+                    });
+
+                    window.addEventListener('offline', () => {
+                        this.online = false;
+                        this.offline = true;
+                        this.lastSyncMessage = 'Connexion perdue.';
+                    });
+
+                    if (this.online && this.pendingSales.length > 0) {
+                        this.syncPending();
+                    }
+                },
+
+                filteredProducts() {
+                    const query = this.offlineSearch.trim().toLowerCase();
+
+                    return this.catalog.categories
+                        .flatMap(category => category.products)
+                        .filter(product => product.service_area === this.serviceArea)
+                        .filter(product => query === '' || product.name.toLowerCase().includes(query));
+                },
+
+                addOfflineProduct(product) {
+                    if (this.offlineCart[product.id]) {
+                        this.offlineCart[product.id].quantity++;
+                    } else {
+                        this.offlineCart[product.id] = {
+                            product_id: product.id,
+                            product_name: product.name,
+                            emoji: product.emoji,
+                            unit_price: product.price,
+                            quantity: 1,
+                        };
+                    }
+
+                    if (this.offlinePaymentMethod === 'cash' && Number(this.offlineAmountGiven || 0) < this.offlineCartTotal()) {
+                        this.offlineAmountGiven = this.offlineCartTotal();
+                    }
+                },
+
+                incrementOffline(productId) {
+                    if (this.offlineCart[productId]) {
+                        this.offlineCart[productId].quantity++;
+                    }
+                },
+
+                decrementOffline(productId) {
+                    if (!this.offlineCart[productId]) return;
+
+                    this.offlineCart[productId].quantity--;
+
+                    if (this.offlineCart[productId].quantity <= 0) {
+                        delete this.offlineCart[productId];
+                    }
+                },
+
+                offlineCartItems() {
+                    return Object.values(this.offlineCart);
+                },
+
+                offlineCartCount() {
+                    return this.offlineCartItems().reduce((total, item) => total + item.quantity, 0);
+                },
+
+                offlineCartTotal() {
+                    return this.offlineCartItems().reduce((total, item) => total + item.unit_price * item.quantity, 0);
+                },
+
+                offlineChangeDue() {
+                    if (this.offlinePaymentMethod !== 'cash') return 0;
+
+                    return Number(this.offlineAmountGiven || 0) - this.offlineCartTotal();
+                },
+
+                queueOfflineSale() {
+                    if (this.offlineCartCount() === 0) return;
+                    if (this.offlinePaymentMethod === 'cash' && this.offlineChangeDue() < 0) return;
+
+                    const total = this.offlineCartTotal();
+                    const sale = {
+                        offline_uuid: this.uuid(),
+                        created_at: new Date().toISOString(),
+                        payment_method: this.offlinePaymentMethod,
+                        service_area: this.serviceArea,
+                        total_amount: total,
+                        amount_given: this.offlinePaymentMethod === 'cash' ? Number(this.offlineAmountGiven || total) : null,
+                        change_due: this.offlinePaymentMethod === 'cash' ? this.offlineChangeDue() : null,
+                        items: this.offlineCartItems().map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            unit_price: item.unit_price,
+                            quantity: item.quantity,
+                            subtotal: item.unit_price * item.quantity,
+                        })),
+                    };
+
+                    this.pendingSales.push(sale);
+                    this.savePendingSales();
+                    this.offlineCart = {};
+                    this.offlineAmountGiven = 0;
+                    this.lastSyncMessage = 'Vente enregistrée sur cet appareil.';
+
+                    if (this.online) {
+                        this.syncPending();
+                    }
+                },
+
+                async syncPending() {
+                    if (!this.online || this.syncing || this.pendingSales.length === 0) return;
+
+                    this.syncing = true;
+                    this.lastSyncMessage = '';
+
+                    try {
+                        const response = await fetch(this.syncUrl, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            },
+                            body: JSON.stringify({ sales: this.pendingSales }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('sync_failed');
+                        }
+
+                        const data = await response.json();
+                        const syncedIds = new Set((data.synced || []).map(item => item.offline_uuid));
+                        this.pendingSales = this.pendingSales.filter(sale => !syncedIds.has(sale.offline_uuid));
+                        this.savePendingSales();
+
+                        const syncedCount = syncedIds.size;
+                        const failedCount = (data.failed || []).length;
+                        this.lastSyncMessage = `${syncedCount} synchronisée(s)` + (failedCount > 0 ? `, ${failedCount} refusée(s)` : '.');
+                    } catch (error) {
+                        this.lastSyncMessage = 'Synchronisation impossible pour le moment.';
+                    } finally {
+                        this.syncing = false;
+                    }
+                },
+
+                loadPendingSales() {
+                    try {
+                        return JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+                    } catch (error) {
+                        return [];
+                    }
+                },
+
+                savePendingSales() {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.pendingSales));
+                },
+
+                uuid() {
+                    if (window.crypto && crypto.randomUUID) {
+                        return crypto.randomUUID();
+                    }
+
+                    return `offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                },
+
+                formatMoney(amount) {
+                    return `${Number(amount || 0).toLocaleString('fr-FR')} FCFA`;
+                },
+            };
+        }
+    </script>
+
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
         @media print {
             body * {
                 visibility: hidden;

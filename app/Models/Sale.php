@@ -18,6 +18,7 @@ class Sale extends Model
 
     protected $fillable = [
         'receipt_number',
+        'offline_uuid',
         'user_id',
         'payment_method',
         'service_area',

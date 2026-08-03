@@ -24,13 +24,13 @@ class Overview extends Component
     #[Computed]
     public function todayRevenue(): int
     {
-        return (int) Sale::completed()->whereDate('created_at', now())->sum('total_amount');
+        return $this->revenueForDay(now());
     }
 
     #[Computed]
     public function todayOrdersCount(): int
     {
-        return Sale::completed()->whereDate('created_at', now())->count();
+        return $this->ordersCountForDay(now());
     }
 
     #[Computed]
@@ -56,19 +56,19 @@ class Overview extends Component
     #[Computed]
     public function yesterdayRevenue(): int
     {
-        return (int) Sale::completed()->whereDate('created_at', now()->subDay())->sum('total_amount');
+        return $this->revenueForDay(now()->subDay());
     }
 
     #[Computed]
     public function yesterdayOrdersCount(): int
     {
-        return Sale::completed()->whereDate('created_at', now()->subDay())->count();
+        return $this->ordersCountForDay(now()->subDay());
     }
 
     #[Computed]
     public function yesterdayNetProfit(): int
     {
-        $revenue = (int) Sale::completed()->whereDate('created_at', now()->subDay())->sum('total_amount');
+        $revenue = $this->revenueForDay(now()->subDay());
         $expenses = (int) Expense::whereDate('expense_date', now()->subDay())->sum('amount');
 
         return $revenue - $expenses;
@@ -114,7 +114,7 @@ class Overview extends Component
     #[Computed]
     public function paymentMethodBreakdown(): array
     {
-        $sales = Sale::completed()->where('created_at', '>=', $this->periodStart())->get();
+        $sales = $this->effectiveSalesQuery($this->periodStart())->get();
         $total = $sales->sum('total_amount');
 
         return collect(PaymentMethod::cases())
@@ -140,6 +140,14 @@ class Overview extends Component
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
             ->where('sales.created_at', '>=', $this->periodStart())
             ->where('sales.sale_status', \App\Enums\SaleStatus::Completed)
+            ->where(function ($query) {
+                $query->whereNotNull('sales.cash_register_closing_id')
+                    ->orWhereNotExists(function ($subQuery) {
+                        $subQuery->selectRaw('1')
+                            ->from('cash_register_closings')
+                            ->whereRaw('date(cash_register_closings.closing_date) = date(sales.created_at)');
+                    });
+            })
             ->selectRaw('sale_items.product_name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.subtotal) as total_revenue')
             ->groupBy('sale_items.product_name')
             ->orderByDesc('total_quantity')
@@ -150,7 +158,9 @@ class Overview extends Component
     #[Computed]
     public function hourlySales(): array
     {
-        $sales = Sale::completed()->whereDate('created_at', now())->get();
+        $sales = $this->effectiveSalesQuery()
+            ->whereDate('created_at', now())
+            ->get();
 
         $labels = [];
         $values = [];
@@ -183,23 +193,68 @@ class Overview extends Component
         };
     }
 
+    protected function revenueForDay(Carbon $day): int
+    {
+        $closing = CashRegisterClosing::whereDate('closing_date', $day)->first();
+
+        if ($closing) {
+            return $closing->total_amount;
+        }
+
+        return (int) Sale::completed()
+            ->whereNull('cash_register_closing_id')
+            ->whereDate('created_at', $day)
+            ->sum('total_amount');
+    }
+
+    protected function ordersCountForDay(Carbon $day): int
+    {
+        $closing = CashRegisterClosing::whereDate('closing_date', $day)->first();
+
+        if ($closing) {
+            return $closing->total_orders_count;
+        }
+
+        return Sale::completed()
+            ->whereNull('cash_register_closing_id')
+            ->whereDate('created_at', $day)
+            ->count();
+    }
+
+    protected function effectiveSalesQuery(?Carbon $start = null, ?Carbon $end = null)
+    {
+        $query = Sale::completed()
+            ->where(function ($query) {
+                $query->whereNotNull('cash_register_closing_id')
+                    ->orWhereNotExists(function ($subQuery) {
+                        $subQuery->selectRaw('1')
+                            ->from('cash_register_closings')
+                            ->whereRaw('date(cash_register_closings.closing_date) = date(sales.created_at)');
+                    });
+            });
+
+        if ($start) {
+            $query->where('created_at', '>=', $start);
+        }
+
+        if ($end) {
+            $query->where('created_at', '<=', $end);
+        }
+
+        return $query;
+    }
+
     protected function dailySeries(int $days): array
     {
         $start = now()->subDays($days - 1)->startOfDay();
-
-        $sales = Sale::completed()
-            ->where('created_at', '>=', $start)
-            ->get()
-            ->groupBy(fn ($sale) => $sale->created_at->format('Y-m-d'));
 
         $labels = [];
         $values = [];
 
         for ($i = 0; $i < $days; $i++) {
             $date = $start->copy()->addDays($i);
-            $key = $date->format('Y-m-d');
             $labels[] = $date->format('d/m');
-            $values[] = (int) ($sales->get($key)?->sum('total_amount') ?? 0);
+            $values[] = $this->revenueForDay($date);
         }
 
         return ['labels' => $labels, 'values' => $values];
@@ -209,19 +264,26 @@ class Overview extends Component
     {
         $start = now()->subMonths($months - 1)->startOfMonth();
 
-        $sales = Sale::completed()
-            ->where('created_at', '>=', $start)
-            ->get()
-            ->groupBy(fn ($sale) => $sale->created_at->format('Y-m'));
-
         $labels = [];
         $values = [];
 
         for ($i = 0; $i < $months; $i++) {
             $date = $start->copy()->addMonths($i);
-            $key = $date->format('Y-m');
             $labels[] = $date->translatedFormat('M Y');
-            $values[] = (int) ($sales->get($key)?->sum('total_amount') ?? 0);
+            $monthStart = $date->copy()->startOfMonth();
+            $monthEnd = $date->copy()->endOfMonth();
+            $closedTotal = (int) CashRegisterClosing::whereBetween('closing_date', [$monthStart, $monthEnd])->sum('total_amount');
+            $openSalesTotal = (int) Sale::completed()
+                ->whereNull('cash_register_closing_id')
+                ->whereNotExists(function ($subQuery) {
+                    $subQuery->selectRaw('1')
+                        ->from('cash_register_closings')
+                        ->whereRaw('date(cash_register_closings.closing_date) = date(sales.created_at)');
+                })
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->sum('total_amount');
+
+            $values[] = $closedTotal + $openSalesTotal;
         }
 
         return ['labels' => $labels, 'values' => $values];

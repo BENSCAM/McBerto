@@ -23,6 +23,7 @@ class SaleFactory extends Factory
         return [
             'user_id' => User::factory(),
             'receipt_number' => null,
+            'offline_uuid' => null,
             'payment_method' => fake()->randomElement(PaymentMethod::cases()),
             'service_area' => ServiceArea::Standard,
             'sale_status' => SaleStatus::Completed,

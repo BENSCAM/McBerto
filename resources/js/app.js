@@ -3,6 +3,12 @@ import Chart from 'chart.js/auto';
 
 window.Chart = Chart;
 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    });
+}
+
 document.addEventListener('alpine:init', () => {
     window.Alpine.store('confirmModal', {
         show: false,

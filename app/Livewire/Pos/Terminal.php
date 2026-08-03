@@ -87,6 +87,42 @@ class Terminal extends Component
         return ServiceArea::cases();
     }
 
+    public function offlineCatalog(): array
+    {
+        $categories = Category::where('is_active', true)
+            ->with(['products' => fn ($q) => $q->where('is_active', true)->orderBy('name')])
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'serviceAreas' => collect(ServiceArea::cases())
+                ->map(fn (ServiceArea $area) => ['value' => $area->value, 'label' => $area->label()])
+                ->values()
+                ->all(),
+            'paymentMethods' => collect(PaymentMethod::cases())
+                ->map(fn (PaymentMethod $method) => ['value' => $method->value, 'label' => $method->label()])
+                ->values()
+                ->all(),
+            'categories' => $categories
+                ->map(fn (Category $category) => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'products' => $category->products
+                        ->map(fn (Product $product) => [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'emoji' => $product->emoji,
+                            'price' => $product->price,
+                            'service_area' => $product->service_area->value,
+                        ])
+                        ->values()
+                        ->all(),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
     public function selectServiceArea(string $serviceArea): void
     {
         ServiceArea::from($serviceArea);
@@ -213,7 +249,7 @@ class Terminal extends Component
     {
         return Sale::whereDate('created_at', now())
             ->with(['user', 'canceledBy'])
-            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->limit(8)
             ->get();
     }
@@ -354,6 +390,7 @@ class Terminal extends Component
         $this->showCheckout = false;
         $this->checkoutMethod = null;
         $this->amountGiven = '';
+        unset($this->recentSales);
     }
 
     public function closeReceipt(): void

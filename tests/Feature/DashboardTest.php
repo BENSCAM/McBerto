@@ -61,6 +61,41 @@ class DashboardTest extends TestCase
         $this->assertEquals(102999, array_sum($data30['values']));
     }
 
+    public function test_dashboard_uses_closing_totals_for_closed_days(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $closedDay = now()->subDay();
+        $closing = CashRegisterClosing::factory()->create([
+            'closing_date' => $closedDay->format('Y-m-d'),
+            'total_amount' => 12000,
+            'total_orders_count' => 3,
+        ]);
+
+        Sale::factory()->create([
+            'cash_register_closing_id' => $closing->id,
+            'total_amount' => 12000,
+            'created_at' => $closedDay,
+        ]);
+
+        Sale::factory()->create([
+            'cash_register_closing_id' => null,
+            'total_amount' => 99999,
+            'created_at' => $closedDay,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('yesterdayRevenue', 12000)
+            ->assertSet('yesterdayOrdersCount', 3);
+
+        $data = Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->instance()
+            ->chartData();
+
+        $this->assertEquals(12000, $data['values'][5]);
+    }
+
     public function test_net_profit_is_revenue_minus_expenses(): void
     {
         $manager = User::factory()->manager()->create();

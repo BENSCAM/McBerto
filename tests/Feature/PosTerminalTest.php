@@ -315,18 +315,38 @@ class PosTerminalTest extends TestCase
         $category = Category::factory()->create();
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2000]);
 
-        Livewire::actingAs($cashier)
+        $component = Livewire::actingAs($cashier)
             ->test(\App\Livewire\Pos\Terminal::class)
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash');
 
-        $recent = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
-            ->instance()
-            ->recentSales();
+        $recent = $component->instance()->recentSales();
 
         $this->assertCount(1, $recent);
         $this->assertEquals(2000, $recent->first()->total_amount);
+    }
+
+    public function test_recent_sales_prioritizes_latest_recorded_sale_even_with_future_demo_times(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2000]);
+
+        Sale::factory()->count(8)->create([
+            'user_id' => $cashier->id,
+            'created_at' => now()->setTime(21, 0),
+            'total_amount' => 999,
+        ]);
+
+        $component = Livewire::actingAs($cashier)
+            ->test(\App\Livewire\Pos\Terminal::class)
+            ->call('addToCart', $product->id)
+            ->call('completeSale', 'cash');
+
+        $recent = $component->instance()->recentSales();
+
+        $this->assertEquals(2000, $recent->first()->total_amount);
+        $this->assertSame($component->get('lastSaleReceipt.receipt_number'), $recent->first()->receipt_number);
     }
 
     public function test_cashier_can_cancel_own_unclosed_sale(): void

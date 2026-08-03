@@ -6,6 +6,7 @@ use App\Livewire\Pos\CashRegisterClosing;
 use App\Livewire\Pos\ClosingHistory;
 use App\Livewire\Pos\Terminal;
 use App\Livewire\Reports\DailyReport;
+use App\Http\Controllers\Pos\OfflineSaleSyncController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -17,6 +18,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware('role:cashier,manager,owner')->group(function () {
         Route::get('/pos', Terminal::class)->name('pos.terminal');
+        Route::post('/pos/offline-sales/sync', OfflineSaleSyncController::class)->name('pos.offline-sales.sync');
         Route::get('/pos/cloture', CashRegisterClosing::class)->name('pos.closing');
         Route::get('/reports/daily', DailyReport::class)->name('reports.daily');
     });

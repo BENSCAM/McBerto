@@ -27,7 +27,10 @@ class DemoSalesSeeder
         for ($daysAgo = self::DAYS_OF_HISTORY; $daysAgo >= 1; $daysAgo--) {
             $day = Carbon::today()->subDays($daysAgo);
 
-            if (CashRegisterClosing::whereDate('closing_date', $day)->exists()) {
+            if (
+                CashRegisterClosing::whereDate('closing_date', $day)->exists()
+                || Sale::whereDate('created_at', $day)->exists()
+            ) {
                 continue;
             }
 
