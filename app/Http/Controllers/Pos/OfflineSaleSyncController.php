@@ -10,6 +10,7 @@ use App\Models\CashRegisterClosing;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Support\OfflineCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -129,6 +130,7 @@ class OfflineSaleSyncController extends Controller
         return response()->json([
             'synced' => $synced,
             'failed' => $failed,
+            'catalog' => OfflineCatalog::make(),
         ]);
     }
 }

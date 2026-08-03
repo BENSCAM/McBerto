@@ -46,7 +46,14 @@ class OfflineSaleSyncTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('synced.0.offline_uuid', 'offline-sale-1')
-            ->assertJsonPath('failed', []);
+            ->assertJsonPath('failed', [])
+            ->assertJsonStructure([
+                'catalog' => [
+                    'serviceAreas',
+                    'paymentMethods',
+                    'categories',
+                ],
+            ]);
 
         $this->assertDatabaseHas('sales', [
             'offline_uuid' => 'offline-sale-1',
@@ -122,6 +129,38 @@ class OfflineSaleSyncTest extends TestCase
 
         $this->assertDatabaseMissing('sales', [
             'offline_uuid' => 'offline-sale-closed-day',
+        ]);
+    }
+
+    public function test_offline_sale_is_rejected_when_total_is_incoherent(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['price' => 1000]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-bad-total',
+                'created_at' => now()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 2000,
+                'amount_given' => 2000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 1000,
+                    'quantity' => 1,
+                    'subtotal' => 1000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('failed.0.offline_uuid', 'offline-sale-bad-total');
+
+        $this->assertDatabaseMissing('sales', [
+            'offline_uuid' => 'offline-sale-bad-total',
         ]);
     }
 }

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class Terminal extends Component
@@ -89,38 +90,7 @@ class Terminal extends Component
 
     public function offlineCatalog(): array
     {
-        $categories = Category::where('is_active', true)
-            ->with(['products' => fn ($q) => $q->where('is_active', true)->orderBy('name')])
-            ->orderBy('name')
-            ->get();
-
-        return [
-            'serviceAreas' => collect(ServiceArea::cases())
-                ->map(fn (ServiceArea $area) => ['value' => $area->value, 'label' => $area->label()])
-                ->values()
-                ->all(),
-            'paymentMethods' => collect(PaymentMethod::cases())
-                ->map(fn (PaymentMethod $method) => ['value' => $method->value, 'label' => $method->label()])
-                ->values()
-                ->all(),
-            'categories' => $categories
-                ->map(fn (Category $category) => [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'products' => $category->products
-                        ->map(fn (Product $product) => [
-                            'id' => $product->id,
-                            'name' => $product->name,
-                            'emoji' => $product->emoji,
-                            'price' => $product->price,
-                            'service_area' => $product->service_area->value,
-                        ])
-                        ->values()
-                        ->all(),
-                ])
-                ->values()
-                ->all(),
-        ];
+        return \App\Support\OfflineCatalog::make();
     }
 
     public function selectServiceArea(string $serviceArea): void
@@ -277,6 +247,12 @@ class Terminal extends Component
             'cancellation_reason' => 'Annulation depuis la caisse',
         ]);
 
+        unset($this->recentSales);
+    }
+
+    #[On('offline-sales-synced')]
+    public function refreshRecentSalesAfterOfflineSync(): void
+    {
         unset($this->recentSales);
     }
 
