@@ -10,8 +10,10 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -39,7 +41,7 @@ class Terminal extends Component
 
     public string $amountGiven = '';
 
-    /** @var array{id: int, receipt_number: string, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: \Illuminate\Support\Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
+    /** @var array{id: int, receipt_number: string, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
     public ?array $lastSaleReceipt = null;
 
     public function mount(): void
@@ -399,6 +401,129 @@ class Terminal extends Component
         $this->checkoutMethod = null;
         $this->amountGiven = '';
         unset($this->recentSales);
+    }
+
+    public function completeClientSale(array $items, string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null): void
+    {
+        if ($this->todayClosing) {
+            return;
+        }
+
+        $cart = $this->validatedClientCart($items);
+
+        if (empty($cart)) {
+            return;
+        }
+
+        $method = PaymentMethod::from($paymentMethod);
+        $total = array_sum(array_map(
+            fn (array $item) => $item['price'] * $item['quantity'],
+            $cart
+        ));
+
+        if ($method === PaymentMethod::Cash) {
+            if ($amountGiven === null || $amountGiven < $total) {
+                throw ValidationException::withMessages([
+                    'amountGiven' => 'Le montant donné est insuffisant.',
+                ]);
+            }
+
+            $changeDue = $amountGiven - $total;
+        } else {
+            $amountGiven = null;
+            $changeDue = null;
+        }
+
+        $serviceArea = ServiceArea::from($this->activeServiceArea);
+
+        $sale = DB::transaction(function () use ($cart, $method, $serviceArea, $total, $amountGiven, $changeDue) {
+            $sale = Sale::create([
+                'receipt_number' => Sale::nextReceiptNumber(),
+                'user_id' => Auth::id(),
+                'payment_method' => $method,
+                'service_area' => $serviceArea,
+                'sale_status' => SaleStatus::Completed,
+                'total_amount' => $total,
+                'amount_given' => $amountGiven,
+                'change_due' => $changeDue,
+            ]);
+
+            foreach ($cart as $productId => $item) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $productId,
+                    'product_name' => $item['name'],
+                    'unit_price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'subtotal' => $item['price'] * $item['quantity'],
+                ]);
+            }
+
+            return $sale;
+        });
+
+        $this->lastSaleReceipt = [
+            'id' => $sale->id,
+            'receipt_number' => $sale->receipt_number,
+            'items' => $cart,
+            'total' => $total,
+            'payment_method' => $method,
+            'service_area' => $serviceArea,
+            'created_at' => now(),
+            'cashier' => Auth::user()->name,
+            'amount_given' => $amountGiven,
+            'change_due' => $changeDue,
+        ];
+        $this->showCheckout = false;
+        $this->checkoutMethod = null;
+        $this->amountGiven = '';
+        unset($this->recentSales);
+    }
+
+    protected function validatedClientCart(array $items): array
+    {
+        $productIds = collect($items)
+            ->pluck('product_id')
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($productIds->isEmpty()) {
+            return [];
+        }
+
+        $products = Product::where('is_active', true)
+            ->where('service_area', $this->activeServiceArea)
+            ->whereIn('id', $productIds)
+            ->get()
+            ->keyBy('id');
+
+        return collect($items)
+            ->mapWithKeys(function (array $item) use ($products) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $product = $products->get($productId);
+
+                if (! $product) {
+                    return [];
+                }
+
+                $quantity = min(max((int) ($item['quantity'] ?? 0), 0), 999);
+
+                if ($quantity < 1) {
+                    return [];
+                }
+
+                return [
+                    $productId => [
+                        'name' => $product->name,
+                        'emoji' => $product->emoji,
+                        'price' => $product->price,
+                        'quantity' => $quantity,
+                    ],
+                ];
+            })
+            ->all();
     }
 
     public function closeReceipt(): void

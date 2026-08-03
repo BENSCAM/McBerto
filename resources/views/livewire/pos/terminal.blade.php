@@ -22,6 +22,7 @@
                         @foreach ($this->serviceAreaOptions() as $serviceArea)
                             <button
                                 type="button"
+                                x-on:click="onlineCart = {}; closeOnlineCheckout()"
                                 wire:click="selectServiceArea('{{ $serviceArea->value }}')"
                                 wire:loading.attr="disabled"
                                 wire:target="selectServiceArea"
@@ -257,10 +258,13 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                         @foreach ($this->visibleProducts as $product)
                             <button
-                                wire:click="addToCart({{ $product->id }})"
-                                wire:loading.attr="disabled"
-                                wire:loading.class="opacity-50 cursor-wait"
-                                wire:target="addToCart({{ $product->id }})"
+                                type="button"
+                                x-on:click="addOnlineProduct(@js([
+                                    'id' => $product->id,
+                                    'name' => $product->name,
+                                    'emoji' => $product->emoji,
+                                    'price' => $product->price,
+                                ]))"
                                 wire:key="product-{{ $product->id }}"
                                 class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition"
                             >
@@ -279,72 +283,65 @@
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-semibold text-gray-800 dark:text-gray-200">
                             Panier
-                            @if (! empty($cart))
-                                <span class="text-xs font-normal text-gray-400 dark:text-gray-500">({{ array_sum(array_column($cart, 'quantity')) }})</span>
-                            @endif
+                            <span x-show="onlineCartCount() > 0" class="text-xs font-normal text-gray-400 dark:text-gray-500">(<span x-text="onlineCartCount()"></span>)</span>
                         </h3>
-                        @if (! empty($cart))
-                            <button
-                                x-on:click="$store.confirmModal.open('Vider le panier ?', () => $wire.clearCart())"
-                                wire:loading.attr="disabled"
-                                wire:target="clearCart"
-                                class="text-xs text-red-500 dark:text-red-400 underline"
-                            >Vider</button>
-                        @endif
+                        <button
+                            x-show="onlineCartCount() > 0"
+                            x-on:click="$store.confirmModal.open('Vider le panier ?', () => onlineCart = {})"
+                            class="text-xs text-red-500 dark:text-red-400 underline"
+                        >Vider</button>
                     </div>
 
-                    @if (empty($cart))
+                    <template x-if="onlineCartCount() === 0">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
-                    @else
-                        <div class="flex-1 min-h-[4rem] lg:min-h-0 overflow-y-auto space-y-3 mb-4 pr-1">
-                            @foreach ($cart as $productId => $item)
-                                <div class="flex items-center justify-between gap-2" wire:key="cart-{{ $productId }}">
-                                    <div class="flex-1">
-                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                            <span class="mr-1">{{ $item['emoji'] ?? '' }}</span>{{ $item['name'] }}
+                    </template>
+
+                    <template x-if="onlineCartCount() > 0">
+                        <div class="flex flex-col min-h-0">
+                            <div class="flex-1 min-h-[4rem] lg:min-h-0 overflow-y-auto space-y-3 mb-4 pr-1">
+                                <template x-for="item in onlineCartItems()" :key="item.product_id">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                <span class="mr-1" x-text="item.emoji || ''"></span><span x-text="item.product_name"></span>
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(item.unit_price)"></div>
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item['price'], 0, ',', ' ') }} FCFA</div>
+                                        <div class="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                x-on:click="decrementOnline(item.product_id)"
+                                                class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                            >−</button>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="999"
+                                                x-bind:value="item.quantity"
+                                                x-on:change="setOnlineQuantity(item.product_id, $event.target.value)"
+                                                class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
+                                            >
+                                            <button
+                                                type="button"
+                                                x-on:click="incrementOnline(item.product_id)"
+                                                class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                            >+</button>
+                                        </div>
+                                        <button type="button" x-on:click="removeOnlineProduct(item.product_id)" class="text-red-500 text-xs">✕</button>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <button
-                                            wire:click="decrementQty({{ $productId }})"
-                                            wire:loading.attr="disabled"
-                                            wire:loading.class="opacity-50 cursor-wait"
-                                            wire:target="decrementQty({{ $productId }})"
-                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                        >−</button>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="999"
-                                            value="{{ $item['quantity'] }}"
-                                            wire:change="setQuantity({{ $productId }}, $event.target.value)"
-                                            wire:loading.attr="disabled"
-                                            wire:target="setQuantity"
-                                            class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
-                                        >
-                                        <button
-                                            wire:click="incrementQty({{ $productId }})"
-                                            wire:loading.attr="disabled"
-                                            wire:loading.class="opacity-50 cursor-wait"
-                                            wire:target="incrementQty({{ $productId }})"
-                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                        >+</button>
-                                    </div>
-                                    <button wire:click="removeFromCart({{ $productId }})" class="text-red-500 text-xs">✕</button>
-                                </div>
-                            @endforeach
-                        </div>
+                                </template>
+                            </div>
 
-                        <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
-                            <span>Total</span>
-                            <span>{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA</span>
-                        </div>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                                <span>Total</span>
+                                <span x-text="formatMoney(onlineCartTotal())"></span>
+                            </div>
 
-                        <button wire:click="openCheckout" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
-                            Encaisser
-                        </button>
-                    @endif
+                            <button type="button" x-on:click="openOnlineCheckout()" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
+                                Encaisser
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Recent sales -->
@@ -391,16 +388,126 @@
             </div>
         </div>
 
-        @if (! empty($cart))
-            <a
-                href="#cart-section"
-                class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-brand-600 text-white px-4 py-3 flex items-center justify-between shadow-lg"
-            >
-                <span class="text-sm font-medium">{{ array_sum(array_column($cart, 'quantity')) }} article(s)</span>
-                <span class="font-semibold">{{ number_format($this->cartTotal, 0, ',', ' ') }} FCFA · Voir le panier</span>
-            </a>
+        <a
+            x-show="onlineCartCount() > 0"
+            x-cloak
+            href="#cart-section"
+            class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-brand-600 text-white px-4 py-3 flex items-center justify-between shadow-lg"
+        >
+            <span class="text-sm font-medium"><span x-text="onlineCartCount()"></span> article(s)</span>
+            <span class="font-semibold"><span x-text="formatMoney(onlineCartTotal())"></span> · Voir le panier</span>
+        </a>
         @endif
-        @endif
+
+        <div x-show="onlineCheckoutOpen" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" x-on:click.self="closeOnlineCheckout()">
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+                <template x-if="onlineCheckoutMethod === 'cash'">
+                    <div>
+                        <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">Paiement en espèces</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">
+                            Total à payer : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span>
+                        </p>
+
+                        <label for="onlineAmountGiven" class="block font-medium text-sm text-gray-700 dark:text-gray-300">Montant donné par le client</label>
+                        <input
+                            x-model.number="onlineAmountGiven"
+                            id="onlineAmountGiven"
+                            class="block mt-1 w-full text-lg rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                        >
+
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <template x-for="note in [500, 1000, 2000, 5000, 10000]" :key="note">
+                                <button
+                                    type="button"
+                                    x-on:click="onlineAmountGiven = note"
+                                    class="px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-brand-400"
+                                    x-text="formatMoney(note).replace(' FCFA', '')"
+                                ></button>
+                            </template>
+                            <button
+                                type="button"
+                                x-on:click="onlineAmountGiven = onlineCartTotal()"
+                                class="px-3 py-1 text-sm rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-brand-400"
+                            >Montant exact</button>
+                        </div>
+
+                        <div
+                            class="mt-4 p-3 rounded-md"
+                            :class="onlineChangeDue() === null ? 'bg-gray-50 dark:bg-gray-700' : (onlineChangeDue() < 0 ? 'bg-red-50 dark:bg-red-900' : 'bg-green-50 dark:bg-green-900')"
+                        >
+                            <template x-if="onlineChangeDue() === null">
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Saisissez le montant reçu.</p>
+                            </template>
+                            <template x-if="onlineChangeDue() !== null && onlineChangeDue() < 0">
+                                <p class="text-sm text-red-700 dark:text-red-200">Montant insuffisant : <span x-text="formatMoney(Math.abs(onlineChangeDue()))"></span> manquant.</p>
+                            </template>
+                            <template x-if="onlineChangeDue() !== null && onlineChangeDue() >= 0">
+                                <div>
+                                    <p class="text-sm text-green-800 dark:text-green-200">Monnaie à rendre</p>
+                                    <p class="text-2xl font-semibold text-green-800 dark:text-green-200" x-text="formatMoney(onlineChangeDue())"></p>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex gap-2 mt-4">
+                            <button
+                                type="button"
+                                x-on:click="backToOnlinePaymentMethods()"
+                                class="flex-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-md py-2"
+                            >Retour</button>
+                            <button
+                                type="button"
+                                x-on:click="$store.confirmModal.open(`Confirmer l'encaissement de ${formatMoney(onlineCartTotal())} en espèces ?`, () => confirmOnlineSale('cash'))"
+                                :disabled="onlineProcessing || onlineChangeDue() === null || onlineChangeDue() < 0"
+                                class="flex-1 bg-brand-600 text-white rounded-md py-2 font-medium disabled:opacity-50"
+                            >
+                                <span x-show="!onlineProcessing">Confirmer</span>
+                                <span x-show="onlineProcessing">Traitement…</span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="onlineCheckoutMethod !== 'cash'">
+                    <div>
+                        <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">Mode de paiement</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">Total : <span x-text="formatMoney(onlineCartTotal())"></span></p>
+
+                        <div class="space-y-2">
+                            @foreach (\App\Enums\PaymentMethod::cases() as $method)
+                                @if ($method === \App\Enums\PaymentMethod::Cash)
+                                    <button
+                                        type="button"
+                                        x-on:click="selectOnlinePaymentMethod('{{ $method->value }}')"
+                                        class="w-full border border-gray-200 dark:border-gray-700 rounded-md py-2 text-gray-800 dark:text-gray-200 hover:border-brand-500"
+                                    >{{ $method->label() }}</button>
+                                @else
+                                    <button
+                                        type="button"
+                                        x-on:click="$store.confirmModal.open('Confirmer l\'encaissement en {{ $method->label() }} ?', () => confirmOnlineSale('{{ $method->value }}'))"
+                                        :disabled="onlineProcessing"
+                                        class="w-full border border-gray-200 dark:border-gray-700 rounded-md py-2 text-gray-800 dark:text-gray-200 hover:border-brand-500 disabled:opacity-50"
+                                    >
+                                        <span x-show="!onlineProcessing">{{ $method->label() }}</span>
+                                        <span x-show="onlineProcessing">Traitement…</span>
+                                    </button>
+                                @endif
+                            @endforeach
+                        </div>
+
+                        <button
+                            type="button"
+                            x-on:click="closeOnlineCheckout()"
+                            :disabled="onlineProcessing"
+                            class="mt-4 text-sm text-gray-500 dark:text-gray-400 underline disabled:opacity-50"
+                        >Annuler</button>
+                    </div>
+                </template>
+            </div>
+        </div>
 
         @if ($showCheckout)
             <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" wire:click.self="closeCheckout">
@@ -576,6 +683,11 @@
                 offlineCart: {},
                 offlinePaymentMethod: 'cash',
                 offlineAmountGiven: 0,
+                onlineCart: {},
+                onlineCheckoutOpen: false,
+                onlineCheckoutMethod: null,
+                onlineAmountGiven: '',
+                onlineProcessing: false,
                 pendingSales: [],
                 failedSales: [],
 
@@ -626,6 +738,134 @@
 
                     if (this.offlinePaymentMethod === 'cash' && Number(this.offlineAmountGiven || 0) < this.offlineCartTotal()) {
                         this.offlineAmountGiven = this.offlineCartTotal();
+                    }
+                },
+
+                addOnlineProduct(product) {
+                    if (this.onlineCart[product.id]) {
+                        this.onlineCart[product.id].quantity++;
+                    } else {
+                        this.onlineCart[product.id] = {
+                            product_id: product.id,
+                            product_name: product.name,
+                            emoji: product.emoji,
+                            unit_price: product.price,
+                            quantity: 1,
+                        };
+                    }
+                },
+
+                incrementOnline(productId) {
+                    if (this.onlineCart[productId]) {
+                        this.onlineCart[productId].quantity++;
+                    }
+                },
+
+                decrementOnline(productId) {
+                    if (!this.onlineCart[productId]) return;
+
+                    this.onlineCart[productId].quantity--;
+
+                    if (this.onlineCart[productId].quantity <= 0) {
+                        delete this.onlineCart[productId];
+                    }
+                },
+
+                removeOnlineProduct(productId) {
+                    delete this.onlineCart[productId];
+                },
+
+                setOnlineQuantity(productId, quantity) {
+                    if (!this.onlineCart[productId]) return;
+
+                    const nextQuantity = Math.min(Math.max(Number.parseInt(quantity || 0, 10), 0), 999);
+
+                    if (nextQuantity < 1) {
+                        delete this.onlineCart[productId];
+                        return;
+                    }
+
+                    this.onlineCart[productId].quantity = nextQuantity;
+                },
+
+                onlineCartItems() {
+                    return Object.values(this.onlineCart);
+                },
+
+                onlineCartCount() {
+                    return this.onlineCartItems().reduce((total, item) => total + item.quantity, 0);
+                },
+
+                onlineCartTotal() {
+                    return this.onlineCartItems().reduce((total, item) => total + item.unit_price * item.quantity, 0);
+                },
+
+                openOnlineCheckout() {
+                    if (this.onlineCartCount() === 0) return;
+
+                    this.onlineCheckoutOpen = true;
+                    this.onlineCheckoutMethod = null;
+                    this.onlineAmountGiven = '';
+                },
+
+                closeOnlineCheckout() {
+                    if (this.onlineProcessing) return;
+
+                    this.onlineCheckoutOpen = false;
+                    this.onlineCheckoutMethod = null;
+                    this.onlineAmountGiven = '';
+                },
+
+                selectOnlinePaymentMethod(paymentMethod) {
+                    if (paymentMethod === 'cash') {
+                        this.onlineCheckoutMethod = 'cash';
+                        this.onlineAmountGiven = '';
+                    }
+                },
+
+                backToOnlinePaymentMethods() {
+                    if (this.onlineProcessing) return;
+
+                    this.onlineCheckoutMethod = null;
+                    this.onlineAmountGiven = '';
+                },
+
+                onlineChangeDue() {
+                    if (this.onlineAmountGiven === '' || Number.isNaN(Number(this.onlineAmountGiven))) {
+                        return null;
+                    }
+
+                    return Number(this.onlineAmountGiven) - this.onlineCartTotal();
+                },
+
+                async confirmOnlineSale(paymentMethod) {
+                    if (this.onlineProcessing || this.onlineCartCount() === 0) return;
+
+                    const total = this.onlineCartTotal();
+                    const amountGiven = paymentMethod === 'cash' ? Number(this.onlineAmountGiven || 0) : null;
+                    const changeDue = paymentMethod === 'cash' ? amountGiven - total : null;
+
+                    if (paymentMethod === 'cash' && changeDue < 0) return;
+
+                    this.onlineProcessing = true;
+
+                    try {
+                        await this.$wire.completeClientSale(
+                            this.onlineCartItems().map(item => ({
+                                product_id: item.product_id,
+                                quantity: item.quantity,
+                            })),
+                            paymentMethod,
+                            amountGiven,
+                            changeDue,
+                        );
+
+                        this.onlineCart = {};
+                        this.onlineCheckoutOpen = false;
+                        this.onlineCheckoutMethod = null;
+                        this.onlineAmountGiven = '';
+                    } finally {
+                        this.onlineProcessing = false;
                     }
                 },
 

@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
+use App\Enums\ServiceArea;
+use App\Livewire\Pos\Terminal;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
@@ -31,7 +34,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500, 'emoji' => '🍔']);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('incrementQty', $product->id)
             ->assertSet('cart', [
@@ -43,7 +46,7 @@ class PosTerminalTest extends TestCase
             ->assertSet('cart', [])
             ->assertSet('showCheckout', false)
             ->assertSet('lastSaleReceipt.total', 3000)
-            ->assertSet('lastSaleReceipt.payment_method', \App\Enums\PaymentMethod::Cash);
+            ->assertSet('lastSaleReceipt.payment_method', PaymentMethod::Cash);
 
         $this->assertDatabaseHas('sales', [
             'user_id' => $cashier->id,
@@ -59,6 +62,37 @@ class PosTerminalTest extends TestCase
         ]);
     }
 
+    public function test_cashier_can_complete_a_client_side_cart_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 3, 'unit_price' => 1],
+            ], 'cash', 5000, 500)
+            ->assertSet('lastSaleReceipt.total', 4500)
+            ->assertSet('lastSaleReceipt.amount_given', 5000)
+            ->assertSet('lastSaleReceipt.change_due', 500);
+
+        $this->assertDatabaseHas('sales', [
+            'user_id' => $cashier->id,
+            'payment_method' => 'cash',
+            'total_amount' => 4500,
+            'amount_given' => 5000,
+            'change_due' => 500,
+        ]);
+
+        $this->assertDatabaseHas('sale_items', [
+            'product_id' => $product->id,
+            'unit_price' => 1500,
+            'quantity' => 3,
+            'subtotal' => 4500,
+        ]);
+    }
+
     public function test_receipt_can_be_dismissed_after_a_sale(): void
     {
         $cashier = User::factory()->cashier()->create();
@@ -66,7 +100,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash')
             ->assertSet('lastSaleReceipt.id', fn ($id) => $id !== null)
@@ -81,7 +115,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash')
             ->assertSet('lastSaleReceipt.receipt_number', 'MCB-'.now()->format('Ymd').'-0001');
@@ -98,7 +132,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('setQuantity', $product->id, '5')
             ->assertSet("cart.{$product->id}.quantity", 5)
@@ -113,7 +147,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('clearCart')
             ->assertSet('cart', []);
@@ -128,7 +162,7 @@ class PosTerminalTest extends TestCase
         $cola = Product::factory()->create(['category_id' => $drinks->id, 'name' => 'Coca-Cola']);
 
         $component = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->set('search', 'cola');
 
         $visible = $component->instance()->visibleProducts();
@@ -145,7 +179,7 @@ class PosTerminalTest extends TestCase
         $vipProduct = Product::factory()->create(['category_id' => $category->id, 'name' => 'Burger Signature VIP', 'service_area' => 'vip']);
 
         $component = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class);
+            ->test(Terminal::class);
 
         $standardVisible = $component->instance()->visibleProducts();
         $this->assertTrue($standardVisible->contains('id', $standardProduct->id));
@@ -170,12 +204,12 @@ class PosTerminalTest extends TestCase
         ]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('selectServiceArea', 'vip')
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash')
             ->assertSet('lastSaleReceipt.total', 4200)
-            ->assertSet('lastSaleReceipt.service_area', \App\Enums\ServiceArea::Vip);
+            ->assertSet('lastSaleReceipt.service_area', ServiceArea::Vip);
 
         $this->assertDatabaseHas('sales', [
             'user_id' => $cashier->id,
@@ -191,7 +225,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'service_area' => 'standard']);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('selectServiceArea', 'vip')
             ->assertSet('cart', []);
@@ -204,7 +238,7 @@ class PosTerminalTest extends TestCase
         Product::factory()->create(['category_id' => $category->id]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->set('search', 'xyz')
             ->assertSet('activeCategoryId', null)
             ->set('search', '')
@@ -218,7 +252,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('openCheckout')
             ->call('selectPaymentMethod', 'cash')
@@ -237,7 +271,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('openCheckout')
             ->call('selectPaymentMethod', 'cash')
@@ -261,7 +295,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('openCheckout')
             ->call('selectPaymentMethod', 'cash')
@@ -280,7 +314,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('openCheckout')
             ->call('selectPaymentMethod', 'cash')
@@ -296,7 +330,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1500]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('openCheckout')
             ->call('selectPaymentMethod', 'orange_money')
@@ -316,7 +350,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2000]);
 
         $component = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash');
 
@@ -339,7 +373,7 @@ class PosTerminalTest extends TestCase
         ]);
 
         $component = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->call('completeSale', 'cash');
 
@@ -359,7 +393,7 @@ class PosTerminalTest extends TestCase
         ]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('cancelSale', $sale->id);
 
         $this->assertDatabaseHas('sales', [
@@ -381,7 +415,7 @@ class PosTerminalTest extends TestCase
         ]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('cancelSale', $sale->id);
 
         $this->assertDatabaseHas('sales', [
@@ -402,7 +436,7 @@ class PosTerminalTest extends TestCase
         ]);
 
         Livewire::actingAs($manager)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('cancelSale', $sale->id);
 
         $this->assertDatabaseHas('sales', [
@@ -420,7 +454,7 @@ class PosTerminalTest extends TestCase
         CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id)
             ->assertSet('cart', []);
     }
@@ -432,7 +466,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
 
         $component = Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('addToCart', $product->id);
 
         CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
@@ -448,7 +482,7 @@ class PosTerminalTest extends TestCase
         CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->call('reopenRegister')
             ->assertSet('todayClosing.id', fn ($id) => $id !== null);
 
@@ -463,7 +497,7 @@ class PosTerminalTest extends TestCase
         $product = Product::factory()->create(['category_id' => $category->id, 'price' => 1000]);
 
         Livewire::actingAs($manager)
-            ->test(\App\Livewire\Pos\Terminal::class)
+            ->test(Terminal::class)
             ->assertSet('todayClosing.id', $closing->id)
             ->call('reopenRegister')
             ->assertSet('todayClosing', null)
