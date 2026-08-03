@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
+use App\Livewire\Pos\CashRegisterClosing;
+use App\Models\CashRegisterClosing as CashRegisterClosingModel;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +25,7 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'sale_status' => SaleStatus::Canceled, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 9000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->assertSet('pendingTotal', 3000)
             ->assertSet('pendingCount', 2)
             ->set('countedCash', '1000')
@@ -50,7 +52,7 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 1000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->call('close')
             ->assertHasErrors('countedCash');
 
@@ -63,7 +65,7 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 5000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->set('countedCash', '4700')
             ->assertSet('projectedVariance', -300)
             ->call('close');
@@ -80,14 +82,30 @@ class CashRegisterClosingTest extends TestCase
         $cashier = User::factory()->cashier()->create();
         Sale::factory()->create(['user_id' => $cashier->id, 'total_amount' => 1000]);
 
-        $component = Livewire::actingAs($cashier)->test(\App\Livewire\Pos\CashRegisterClosing::class);
+        $component = Livewire::actingAs($cashier)->test(CashRegisterClosing::class);
         $component->set('countedCash', '1000')->call('close');
 
         $this->assertDatabaseCount('cash_register_closings', 1);
 
         // A fresh mount on the same day should show the existing closing, not allow a new one.
-        $fresh = Livewire::actingAs($cashier)->test(\App\Livewire\Pos\CashRegisterClosing::class);
+        $fresh = Livewire::actingAs($cashier)->test(CashRegisterClosing::class);
         $fresh->set('countedCash', '1000')->call('close');
+
+        $this->assertDatabaseCount('cash_register_closings', 1);
+    }
+
+    public function test_stale_closing_page_does_not_create_duplicate_closing(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+
+        $component = Livewire::actingAs($cashier)->test(CashRegisterClosing::class);
+
+        CashRegisterClosingModel::factory()->create([
+            'closing_date' => now()->format('Y-m-d'),
+            'closed_by' => $cashier->id,
+        ]);
+
+        $component->set('countedCash', '3800')->call('close');
 
         $this->assertDatabaseCount('cash_register_closings', 1);
     }
@@ -98,12 +116,12 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'total_amount' => 1000]);
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->set('countedCash', '1000')
             ->call('close');
 
         Livewire::actingAs($cashier)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->call('reopen')
             ->assertSet('existingClosing.id', fn ($id) => $id !== null);
 
@@ -118,14 +136,14 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 1000]);
 
         Livewire::actingAs($manager)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->set('countedCash', '1000')
             ->call('close');
 
         $this->assertDatabaseCount('cash_register_closings', 1);
 
         Livewire::actingAs($manager)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->call('reopen')
             ->assertSet('existingClosing', null)
             ->assertSet('pendingTotal', 1000);
@@ -137,7 +155,7 @@ class CashRegisterClosingTest extends TestCase
         Sale::factory()->create(['user_id' => $cashier->id, 'payment_method' => PaymentMethod::Cash, 'total_amount' => 500]);
 
         Livewire::actingAs($manager)
-            ->test(\App\Livewire\Pos\CashRegisterClosing::class)
+            ->test(CashRegisterClosing::class)
             ->assertSet('pendingTotal', 1500)
             ->set('countedCash', '1500')
             ->call('close');

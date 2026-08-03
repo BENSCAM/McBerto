@@ -3,9 +3,11 @@
 namespace App\Livewire\Pos;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Enums\ServiceArea;
 use App\Models\CashRegisterClosing as CashRegisterClosingModel;
 use App\Models\Sale;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +83,7 @@ class CashRegisterClosing extends Component
             return [];
         }
 
-        $sales = $this->existingClosing->sales->where('sale_status', \App\Enums\SaleStatus::Completed);
+        $sales = $this->existingClosing->sales->where('sale_status', SaleStatus::Completed);
 
         return collect(ServiceArea::cases())
             ->mapWithKeys(fn (ServiceArea $serviceArea) => [
@@ -115,32 +117,44 @@ class CashRegisterClosing extends Component
         $today = Carbon::today();
         $counted = (int) $this->countedCash;
 
-        DB::transaction(function () use ($today, $counted) {
-            $pendingSales = Sale::whereNull('cash_register_closing_id')
-                ->completed()
-                ->whereDate('created_at', $today)
-                ->get();
+        try {
+            DB::transaction(function () use ($today, $counted) {
+                $existingClosing = CashRegisterClosingModel::whereDate('closing_date', $today)
+                    ->lockForUpdate()
+                    ->first();
 
-            $cashTotal = $pendingSales->where('payment_method', PaymentMethod::Cash)->sum('total_amount');
+                if ($existingClosing) {
+                    return;
+                }
 
-            $closing = CashRegisterClosingModel::create([
-                'closing_date' => $today,
-                'closed_by' => Auth::id(),
-                'total_cash' => $cashTotal,
-                'counted_cash' => $counted,
-                'variance' => $counted - $cashTotal,
-                'total_orange_money' => $pendingSales->where('payment_method', PaymentMethod::OrangeMoney)->sum('total_amount'),
-                'total_mtn_momo' => $pendingSales->where('payment_method', PaymentMethod::MtnMomo)->sum('total_amount'),
-                'total_other' => $pendingSales->where('payment_method', PaymentMethod::Other)->sum('total_amount'),
-                'total_amount' => $pendingSales->sum('total_amount'),
-                'total_orders_count' => $pendingSales->count(),
-            ]);
+                $pendingSales = Sale::whereNull('cash_register_closing_id')
+                    ->completed()
+                    ->whereDate('created_at', $today)
+                    ->get();
 
-            Sale::whereNull('cash_register_closing_id')
-                ->completed()
-                ->whereDate('created_at', $today)
-                ->update(['cash_register_closing_id' => $closing->id]);
-        });
+                $cashTotal = $pendingSales->where('payment_method', PaymentMethod::Cash)->sum('total_amount');
+
+                $closing = CashRegisterClosingModel::create([
+                    'closing_date' => $today,
+                    'closed_by' => Auth::id(),
+                    'total_cash' => $cashTotal,
+                    'counted_cash' => $counted,
+                    'variance' => $counted - $cashTotal,
+                    'total_orange_money' => $pendingSales->where('payment_method', PaymentMethod::OrangeMoney)->sum('total_amount'),
+                    'total_mtn_momo' => $pendingSales->where('payment_method', PaymentMethod::MtnMomo)->sum('total_amount'),
+                    'total_other' => $pendingSales->where('payment_method', PaymentMethod::Other)->sum('total_amount'),
+                    'total_amount' => $pendingSales->sum('total_amount'),
+                    'total_orders_count' => $pendingSales->count(),
+                ]);
+
+                Sale::whereNull('cash_register_closing_id')
+                    ->completed()
+                    ->whereDate('created_at', $today)
+                    ->update(['cash_register_closing_id' => $closing->id]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Another request already closed the register for this date.
+        }
 
         $this->reset('countedCash');
         $this->refreshState();
