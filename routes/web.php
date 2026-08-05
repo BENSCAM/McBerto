@@ -8,6 +8,8 @@ use App\Livewire\Pos\ClosingHistory;
 use App\Livewire\Pos\Terminal;
 use App\Livewire\Reports\DailyReport;
 use App\Livewire\System\ActivityHistory;
+use App\Livewire\System\BugHistory;
+use App\Livewire\System\DataReset;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -31,10 +33,12 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('/expenses', 'expenses.index')->name('expenses.index');
         Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
         Route::get('/system/history', ActivityHistory::class)->name('system.history');
+        Route::get('/system/bugs', BugHistory::class)->name('system.bugs');
     });
 
     Route::middleware('role:owner')->group(function () {
         Route::get('/users', UserManagement::class)->name('users.index');
+        Route::get('/system/reset', DataReset::class)->name('system.reset');
     });
 });
 
