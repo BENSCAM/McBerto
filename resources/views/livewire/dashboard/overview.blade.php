@@ -63,32 +63,49 @@
 
             <div
                 wire:ignore
-                x-data="{
-                    chartInstance: null,
-                    init() {
-                        this.chartInstance = new Chart(this.$refs.canvas, {
-                            type: 'line',
-                            data: {
-                                labels: @js($chart['labels']),
-                                datasets: [{
-                                    label: 'Ventes (FCFA)',
-                                    data: @js($chart['values']),
-                                    borderColor: 'rgb(216, 15, 15)',
-                                    backgroundColor: 'rgba(216, 15, 15, 0.1)',
-                                    tension: 0.3,
-                                    fill: true,
-                                }],
-                            },
-                            options: { responsive: true, plugins: { legend: { display: false } } },
-                        });
+                x-data="(() => {
+                    let chart = null;
+                    let listener = null;
 
-                        window.addEventListener('chart-updated', (event) => {
-                            this.chartInstance.data.labels = event.detail.chart.labels;
-                            this.chartInstance.data.datasets[0].data = event.detail.chart.values;
-                            this.chartInstance.update();
-                        });
-                    },
-                }"
+                    return {
+                        init() {
+                            const canvas = this.$refs.canvas;
+                            Chart.getChart(canvas)?.destroy();
+
+                            chart = new Chart(canvas, {
+                                type: 'line',
+                                data: {
+                                    labels: @js($chart['labels']),
+                                    datasets: [{
+                                        label: 'Ventes (FCFA)',
+                                        data: @js($chart['values']),
+                                        borderColor: 'rgb(216, 15, 15)',
+                                        backgroundColor: 'rgba(216, 15, 15, 0.1)',
+                                        tension: 0.3,
+                                        fill: true,
+                                    }],
+                                },
+                                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+                            });
+
+                            listener = (event) => {
+                                if (!chart || !event.detail?.chart) return;
+
+                                chart.data.labels = [...event.detail.chart.labels];
+                                chart.data.datasets[0].data = [...event.detail.chart.values];
+                                chart.update('none');
+                            };
+
+                            window.addEventListener('chart-updated', listener);
+                        },
+                        destroy() {
+                            if (listener) window.removeEventListener('chart-updated', listener);
+                            if (chart) chart.destroy();
+                            listener = null;
+                            chart = null;
+                        },
+                    };
+                })()"
             >
                 <canvas x-ref="canvas"></canvas>
             </div>
@@ -107,30 +124,47 @@
 
             <div
                 wire:ignore
-                x-data="{
-                    chartInstance: null,
-                    init() {
-                        this.chartInstance = new Chart(this.$refs.hourlyCanvas, {
-                            type: 'bar',
-                            data: {
-                                labels: @js($periodBreakdown['labels']),
-                                datasets: [{
-                                    label: 'Ventes (FCFA)',
-                                    data: @js($periodBreakdown['values']),
-                                    backgroundColor: 'rgba(216, 15, 15, 0.7)',
-                                    borderRadius: 3,
-                                }],
-                            },
-                            options: { responsive: true, plugins: { legend: { display: false } } },
-                        });
+                x-data="(() => {
+                    let chart = null;
+                    let listener = null;
 
-                        window.addEventListener('period-breakdown-updated', (event) => {
-                            this.chartInstance.data.labels = event.detail.chart.labels;
-                            this.chartInstance.data.datasets[0].data = event.detail.chart.values;
-                            this.chartInstance.update();
-                        });
-                    },
-                }"
+                    return {
+                        init() {
+                            const canvas = this.$refs.hourlyCanvas;
+                            Chart.getChart(canvas)?.destroy();
+
+                            chart = new Chart(canvas, {
+                                type: 'bar',
+                                data: {
+                                    labels: @js($periodBreakdown['labels']),
+                                    datasets: [{
+                                        label: 'Ventes (FCFA)',
+                                        data: @js($periodBreakdown['values']),
+                                        backgroundColor: 'rgba(216, 15, 15, 0.7)',
+                                        borderRadius: 3,
+                                    }],
+                                },
+                                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
+                            });
+
+                            listener = (event) => {
+                                if (!chart || !event.detail?.chart) return;
+
+                                chart.data.labels = [...event.detail.chart.labels];
+                                chart.data.datasets[0].data = [...event.detail.chart.values];
+                                chart.update('none');
+                            };
+
+                            window.addEventListener('period-breakdown-updated', listener);
+                        },
+                        destroy() {
+                            if (listener) window.removeEventListener('period-breakdown-updated', listener);
+                            if (chart) chart.destroy();
+                            listener = null;
+                            chart = null;
+                        },
+                    };
+                })()"
             >
                 <canvas x-ref="hourlyCanvas"></canvas>
             </div>

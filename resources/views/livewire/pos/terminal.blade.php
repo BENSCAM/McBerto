@@ -88,8 +88,15 @@
                 </div>
                 <div class="mt-3 text-sm text-amber-900 dark:text-amber-100">
                     <span x-text="pendingSales.length"></span> vente(s) en attente.
+                    <span x-show="syncingSalesCount() > 0" class="ml-2"><span x-text="syncingSalesCount()"></span> en cours.</span>
+                    <span x-show="syncedSales.length > 0" class="ml-2 text-green-700 dark:text-green-200"><span x-text="syncedSales.length"></span> synchronisée(s).</span>
                     <span x-show="failedSales.length > 0" class="ml-2 text-red-700 dark:text-red-200"><span x-text="failedSales.length"></span> refusée(s).</span>
                     <span x-show="lastSyncMessage" x-text="lastSyncMessage" class="ml-2"></span>
+                </div>
+                <div class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-amber-900 dark:text-amber-100">
+                    <div>Service worker : <span x-text="serviceWorkerReady ? 'actif' : 'non détecté'"></span></div>
+                    <div>Catalogue : <span x-text="catalog.version || 'local'"></span></div>
+                    <div>Dernière sync : <span x-text="lastSyncAt || 'jamais'"></span></div>
                 </div>
             </div>
 
@@ -194,7 +201,7 @@
                             <span class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(pendingTotal())"></span>
                         </div>
 
-                        <template x-if="pendingSales.length === 0 && failedSales.length === 0">
+                        <template x-if="pendingSales.length === 0 && failedSales.length === 0 && syncedSales.length === 0">
                             <p class="text-sm text-gray-500 dark:text-gray-400">Aucune vente en attente.</p>
                         </template>
 
@@ -205,7 +212,10 @@
                                         <span class="text-gray-700 dark:text-gray-300" x-text="offlineReference(sale)"></span>
                                         <span class="font-medium text-gray-900 dark:text-gray-100" x-text="formatMoney(sale.total_amount)"></span>
                                     </div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="`${sale.items.length} ligne(s) · ${sale.payment_method}`"></div>
+                                    <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <span x-text="`${sale.items.length} ligne(s) · ${sale.payment_method}`"></span>
+                                        <span class="rounded-full px-2 py-0.5" :class="sale.status === 'syncing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-100'" x-text="sale.status === 'syncing' ? 'syncing' : 'pending'"></span>
+                                    </div>
                                 </div>
                             </template>
 
@@ -213,9 +223,24 @@
                                 <div class="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 p-2 text-sm">
                                     <div class="flex justify-between gap-2">
                                         <span class="text-red-700 dark:text-red-100" x-text="offlineReference(sale)"></span>
-                                        <button type="button" x-on:click="removeFailedSale(sale.offline_uuid)" class="text-xs text-red-600 dark:text-red-200 underline">Retirer</button>
+                                        <div class="flex gap-2">
+                                            <button type="button" x-on:click="retryFailedSale(sale.offline_uuid)" class="text-xs text-red-600 dark:text-red-200 underline">Réessayer</button>
+                                            <button type="button" x-on:click="removeFailedSale(sale.offline_uuid)" class="text-xs text-red-600 dark:text-red-200 underline">Retirer</button>
+                                        </div>
                                     </div>
                                     <div class="text-xs text-red-600 dark:text-red-200" x-text="sale.error_message || 'Synchronisation refusée.'"></div>
+                                </div>
+                            </template>
+
+                            <template x-for="sale in syncedSales.slice(0, 5)" :key="`synced-${sale.offline_uuid}`">
+                                <div class="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 p-2 text-sm">
+                                    <div class="flex justify-between gap-2">
+                                        <span class="text-green-700 dark:text-green-100" x-text="offlineReference(sale)"></span>
+                                        <span class="font-medium text-green-800 dark:text-green-100" x-text="sale.receipt_number || 'Synchronisée'"></span>
+                                    </div>
+                                    <template x-if="sale.warning_message">
+                                        <div class="text-xs text-amber-700 dark:text-amber-200" x-text="sale.warning_message"></div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -666,11 +691,14 @@
                 syncUrl,
                 storageKey: 'mcberto:offline-sales:v1',
                 failedStorageKey: 'mcberto:offline-failed-sales:v1',
+                syncedStorageKey: 'mcberto:offline-synced-sales:v1',
                 catalogStorageKey: 'mcberto:offline-catalog:v2',
                 offline: !navigator.onLine,
                 online: navigator.onLine,
                 syncing: false,
+                serviceWorkerReady: false,
                 lastSyncMessage: '',
+                lastSyncAt: localStorage.getItem('mcberto:last-sync-at') || '',
                 serviceArea: 'standard',
                 offlineSearch: '',
                 offlineCart: {},
@@ -686,6 +714,7 @@
                 onlineProcessing: false,
                 pendingSales: [],
                 failedSales: [],
+                syncedSales: [],
 
                 init() {
                     this.catalog = this.loadCatalog();
@@ -693,6 +722,8 @@
                     this.onlineActiveCategoryId = this.onlineCategories()[0]?.id ?? null;
                     this.pendingSales = this.loadPendingSales();
                     this.failedSales = this.loadFailedSales();
+                    this.syncedSales = this.loadSyncedSales();
+                    this.detectServiceWorker();
 
                     window.addEventListener('online', () => {
                         this.online = true;
@@ -946,15 +977,19 @@
                 },
 
                 offlineCartCount() {
-                    return this.offlineCartItems().reduce((total, item) => total + item.quantity, 0);
+                    return this.offlineCartItems().reduce((total, item) => total + Number(item.quantity || 0), 0);
                 },
 
                 offlineCartTotal() {
-                    return this.offlineCartItems().reduce((total, item) => total + item.unit_price * item.quantity, 0);
+                    return this.offlineCartItems().reduce((total, item) => total + Number(item.unit_price || 0) * Number(item.quantity || 0), 0);
                 },
 
                 pendingTotal() {
-                    return this.pendingSales.reduce((total, sale) => total + sale.total_amount, 0);
+                    return this.pendingSales.reduce((total, sale) => total + Number(sale.total_amount || 0), 0);
+                },
+
+                syncingSalesCount() {
+                    return this.pendingSales.filter(sale => sale.status === 'syncing').length;
                 },
 
                 offlineChangeDue() {
@@ -966,10 +1001,13 @@
                 queueOfflineSale() {
                     if (this.offlineCartCount() === 0) return;
                     if (this.offlinePaymentMethod === 'cash' && this.offlineChangeDue() < 0) return;
+                    if (!this.validateOfflineSale()) return;
 
                     const total = this.offlineCartTotal();
                     const sale = {
                         offline_uuid: this.uuid(),
+                        offline_reference: this.nextOfflineReference(),
+                        status: 'pending',
                         created_at: new Date().toISOString(),
                         payment_method: this.offlinePaymentMethod,
                         service_area: this.serviceArea,
@@ -1001,8 +1039,11 @@
 
                     this.syncing = true;
                     this.lastSyncMessage = '';
+                    this.pendingSales = this.pendingSales.map(sale => ({ ...sale, status: 'syncing' }));
+                    this.savePendingSales();
 
                     try {
+                        const salesToSync = this.pendingSales;
                         const response = await fetch(this.syncUrl, {
                             method: 'POST',
                             credentials: 'same-origin',
@@ -1011,7 +1052,7 @@
                                 'Content-Type': 'application/json',
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                             },
-                            body: JSON.stringify({ sales: this.pendingSales }),
+                            body: JSON.stringify({ sales: salesToSync }),
                         });
 
                         if (!response.ok) {
@@ -1019,21 +1060,38 @@
                         }
 
                         const data = await response.json();
-                        const syncedIds = new Set((data.synced || []).map(item => item.offline_uuid));
+                        const syncedById = new Map((data.synced || []).map(item => [item.offline_uuid, item]));
+                        const syncedIds = new Set(syncedById.keys());
                         const failedById = new Map((data.failed || []).map(item => [item.offline_uuid, item.message]));
+                        const warningsById = new Map((data.warnings || []).map(item => [item.offline_uuid, item.message]));
 
                         this.failedSales = [
                             ...this.failedSales,
-                            ...this.pendingSales
+                            ...salesToSync
                                 .filter(sale => failedById.has(sale.offline_uuid))
                                 .map(sale => ({
                                     ...sale,
+                                    status: 'failed',
                                     error_message: failedById.get(sale.offline_uuid),
                                 })),
                         ];
-                        this.pendingSales = this.pendingSales.filter(sale => !syncedIds.has(sale.offline_uuid) && !failedById.has(sale.offline_uuid));
+                        this.syncedSales = [
+                            ...salesToSync
+                                .filter(sale => syncedIds.has(sale.offline_uuid))
+                                .map(sale => ({
+                                    ...sale,
+                                    status: 'synced',
+                                    receipt_number: syncedById.get(sale.offline_uuid)?.receipt_number || '',
+                                    warning_message: warningsById.get(sale.offline_uuid) || '',
+                                })),
+                            ...this.syncedSales,
+                        ].slice(0, 20);
+                        this.pendingSales = salesToSync
+                            .filter(sale => !syncedIds.has(sale.offline_uuid) && !failedById.has(sale.offline_uuid))
+                            .map(sale => ({ ...sale, status: 'pending' }));
                         this.savePendingSales();
                         this.saveFailedSales();
+                        this.saveSyncedSales();
 
                         if (data.catalog) {
                             this.catalog = data.catalog;
@@ -1043,11 +1101,15 @@
                         const syncedCount = syncedIds.size;
                         const failedCount = (data.failed || []).length;
                         this.lastSyncMessage = `${syncedCount} synchronisée(s)` + (failedCount > 0 ? `, ${failedCount} refusée(s)` : '.');
+                        this.lastSyncAt = new Date().toLocaleString('fr-FR');
+                        localStorage.setItem('mcberto:last-sync-at', this.lastSyncAt);
 
                         if (syncedCount > 0 && window.Livewire) {
                             window.Livewire.dispatch('offline-sales-synced');
                         }
                     } catch (error) {
+                        this.pendingSales = this.pendingSales.map(sale => ({ ...sale, status: 'pending' }));
+                        this.savePendingSales();
                         this.lastSyncMessage = 'Synchronisation impossible pour le moment.';
                     } finally {
                         this.syncing = false;
@@ -1059,13 +1121,32 @@
                     this.saveFailedSales();
                 },
 
+                retryFailedSale(offlineUuid) {
+                    const sale = this.failedSales.find(sale => sale.offline_uuid === offlineUuid);
+
+                    if (!sale) return;
+
+                    this.failedSales = this.failedSales.filter(failedSale => failedSale.offline_uuid !== offlineUuid);
+                    this.pendingSales.push({
+                        ...sale,
+                        status: 'pending',
+                        error_message: undefined,
+                    });
+                    this.saveFailedSales();
+                    this.savePendingSales();
+
+                    if (this.online) {
+                        this.syncPending();
+                    }
+                },
+
                 offlineReference(sale) {
                     const date = new Date(sale.created_at);
                     const time = Number.isNaN(date.getTime())
                         ? ''
                         : date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-                    return `Hors ligne ${time}`;
+                    return `${sale.offline_reference || 'Hors ligne'} ${time}`;
                 },
 
                 loadPendingSales() {
@@ -1090,6 +1171,18 @@
 
                 saveFailedSales() {
                     localStorage.setItem(this.failedStorageKey, JSON.stringify(this.failedSales));
+                },
+
+                loadSyncedSales() {
+                    try {
+                        return JSON.parse(localStorage.getItem(this.syncedStorageKey) || '[]');
+                    } catch (error) {
+                        return [];
+                    }
+                },
+
+                saveSyncedSales() {
+                    localStorage.setItem(this.syncedStorageKey, JSON.stringify(this.syncedSales));
                 },
 
                 loadCatalog() {
@@ -1133,6 +1226,57 @@
                         price: Number.isFinite(price) ? price : 0,
                         service_area: product.service_area ?? this.onlineServiceArea,
                     };
+                },
+
+                validateOfflineSale() {
+                    const methods = (this.catalog.paymentMethods || []).map(method => method.value);
+                    const areas = (this.catalog.serviceAreas || []).map(area => area.value);
+                    const items = this.offlineCartItems();
+
+                    if (!methods.includes(this.offlinePaymentMethod) || !areas.includes(this.serviceArea)) {
+                        this.lastSyncMessage = 'Paramètres de vente hors ligne invalides.';
+                        return false;
+                    }
+
+                    const validItems = items.every(item => {
+                        return Number(item.product_id) > 0
+                            && String(item.product_name || '').trim() !== ''
+                            && Number(item.unit_price) >= 0
+                            && Number.isInteger(Number(item.quantity))
+                            && Number(item.quantity) > 0
+                            && Number(item.quantity) <= 999;
+                    });
+
+                    if (!validItems) {
+                        this.lastSyncMessage = 'Panier hors ligne invalide.';
+                        return false;
+                    }
+
+                    return true;
+                },
+
+                nextOfflineReference() {
+                    const date = new Date();
+                    const day = date.toISOString().slice(0, 10).replaceAll('-', '');
+                    const key = `mcberto:offline-sequence:${day}`;
+                    const next = Number(localStorage.getItem(key) || 0) + 1;
+                    localStorage.setItem(key, String(next));
+
+                    return `OFF-${day}-${String(next).padStart(4, '0')}`;
+                },
+
+                async detectServiceWorker() {
+                    if (!('serviceWorker' in navigator)) {
+                        this.serviceWorkerReady = false;
+                        return;
+                    }
+
+                    try {
+                        const registration = await navigator.serviceWorker.ready;
+                        this.serviceWorkerReady = Boolean(registration.active);
+                    } catch (error) {
+                        this.serviceWorkerReady = false;
+                    }
                 },
 
                 uuid() {

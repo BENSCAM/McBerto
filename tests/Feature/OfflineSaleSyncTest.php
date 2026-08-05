@@ -28,6 +28,7 @@ class OfflineSaleSyncTest extends TestCase
         $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
             'sales' => [[
                 'offline_uuid' => 'offline-sale-1',
+                'offline_reference' => 'OFF-20260805-0001',
                 'created_at' => now()->toISOString(),
                 'payment_method' => 'cash',
                 'service_area' => 'standard',
@@ -57,6 +58,7 @@ class OfflineSaleSyncTest extends TestCase
 
         $this->assertDatabaseHas('sales', [
             'offline_uuid' => 'offline-sale-1',
+            'offline_reference' => 'OFF-20260805-0001',
             'user_id' => $cashier->id,
             'payment_method' => 'cash',
             'service_area' => 'standard',
@@ -67,6 +69,55 @@ class OfflineSaleSyncTest extends TestCase
             'product_id' => $product->id,
             'quantity' => 2,
             'subtotal' => 3000,
+        ]);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $cashier->id,
+            'action' => 'offline_sync',
+        ]);
+    }
+
+    public function test_offline_sync_keeps_offline_price_and_reports_warning_when_server_price_changed(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create([
+            'name' => 'Burger Prix Ancien',
+            'price' => 2000,
+        ]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-price-warning',
+                'offline_reference' => 'OFF-20260805-0002',
+                'created_at' => now()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 1500,
+                'amount_given' => 2000,
+                'change_due' => 500,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => 'Burger Prix Ancien',
+                    'unit_price' => 1500,
+                    'quantity' => 1,
+                    'subtotal' => 1500,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('synced.0.offline_reference', 'OFF-20260805-0002')
+            ->assertJsonPath('warnings.0.offline_uuid', 'offline-sale-price-warning');
+
+        $this->assertDatabaseHas('sale_items', [
+            'product_id' => $product->id,
+            'unit_price' => 1500,
+            'subtotal' => 1500,
+        ]);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $cashier->id,
+            'action' => 'offline_sync',
         ]);
     }
 
@@ -126,6 +177,11 @@ class OfflineSaleSyncTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('failed.0.offline_uuid', 'offline-sale-closed-day');
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $cashier->id,
+            'action' => 'offline_sync_partial',
+        ]);
 
         $this->assertDatabaseMissing('sales', [
             'offline_uuid' => 'offline-sale-closed-day',

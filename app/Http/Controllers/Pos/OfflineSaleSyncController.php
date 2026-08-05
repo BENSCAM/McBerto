@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
 use App\Enums\ServiceArea;
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
@@ -25,6 +26,7 @@ class OfflineSaleSyncController extends Controller
         $validated = $request->validate([
             'sales' => ['required', 'array', 'max:50'],
             'sales.*.offline_uuid' => ['required', 'string', 'max:80'],
+            'sales.*.offline_reference' => ['nullable', 'string', 'max:80'],
             'sales.*.created_at' => ['required', 'date'],
             'sales.*.payment_method' => ['required', Rule::enum(PaymentMethod::class)],
             'sales.*.service_area' => ['required', Rule::enum(ServiceArea::class)],
@@ -41,6 +43,7 @@ class OfflineSaleSyncController extends Controller
 
         $synced = [];
         $failed = [];
+        $warnings = [];
 
         foreach ($validated['sales'] as $payload) {
             if ($sale = Sale::where('offline_uuid', $payload['offline_uuid'])->first()) {
@@ -88,10 +91,13 @@ class OfflineSaleSyncController extends Controller
                 continue;
             }
 
+            $priceWarnings = $this->priceWarnings($payload);
+
             $sale = DB::transaction(function () use ($payload, $createdAt) {
                 $sale = new Sale([
                     'receipt_number' => Sale::nextReceiptNumber($createdAt),
                     'offline_uuid' => $payload['offline_uuid'],
+                    'offline_reference' => $payload['offline_reference'] ?? null,
                     'user_id' => Auth::id(),
                     'payment_method' => PaymentMethod::from($payload['payment_method']),
                     'service_area' => ServiceArea::from($payload['service_area']),
@@ -124,13 +130,65 @@ class OfflineSaleSyncController extends Controller
                 'offline_uuid' => $payload['offline_uuid'],
                 'sale_id' => $sale->id,
                 'receipt_number' => $sale->receipt_number,
+                'offline_reference' => $sale->offline_reference,
+                'warnings' => $priceWarnings,
             ];
+
+            foreach ($priceWarnings as $warning) {
+                $warnings[] = [
+                    'offline_uuid' => $payload['offline_uuid'],
+                    'message' => $warning,
+                ];
+            }
         }
+
+        $this->logSyncSummary($synced, $failed, $warnings);
 
         return response()->json([
             'synced' => $synced,
             'failed' => $failed,
+            'warnings' => $warnings,
             'catalog' => $this->offlineCatalog(),
+        ]);
+    }
+
+    private function priceWarnings(array $payload): array
+    {
+        $productIds = collect($payload['items'])->pluck('product_id')->all();
+        $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
+        return collect($payload['items'])
+            ->map(function (array $item) use ($products) {
+                $product = $products->get($item['product_id']);
+
+                if (! $product || (int) $product->price === (int) $item['unit_price']) {
+                    return null;
+                }
+
+                return "Prix offline conservé pour {$item['product_name']} : {$item['unit_price']} FCFA au lieu de {$product->price} FCFA serveur.";
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function logSyncSummary(array $synced, array $failed, array $warnings): void
+    {
+        if (empty($synced) && empty($failed) && empty($warnings)) {
+            return;
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => empty($failed) ? 'offline_sync' : 'offline_sync_partial',
+            'description' => count($synced).' vente(s) offline synchronisée(s), '.count($failed).' refusée(s)',
+            'new_values' => [
+                'synced' => $synced,
+                'failed' => $failed,
+                'warnings' => $warnings,
+            ],
+            'ip_address' => request()?->ip(),
+            'user_agent' => request()?->userAgent(),
         ]);
     }
 
