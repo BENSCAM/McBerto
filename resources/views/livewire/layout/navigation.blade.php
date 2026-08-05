@@ -43,6 +43,9 @@ new class extends Component
                         <x-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')" wire:navigate>
                             {{ __('Dépenses') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')" wire:navigate>
+                            {{ __('Historique') }}
+                        </x-nav-link>
                     @endif
                     @if (auth()->user()->isOwner())
                         <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.index')" wire:navigate>
@@ -118,6 +121,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')" wire:navigate>
                     {{ __('Dépenses') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')" wire:navigate>
+                    {{ __('Historique') }}
                 </x-responsive-nav-link>
             @endif
             @if (auth()->user()->isOwner())

@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\ServiceArea;
+use App\Models\Concerns\LogsActivity;
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,8 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
-    use HasFactory, SoftDeletes;
+    /** @use HasFactory<ProductFactory> */
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'category_id',
@@ -27,7 +30,7 @@ class Product extends Model
     {
         return [
             'price' => 'integer',
-            'service_area' => \App\Enums\ServiceArea::class,
+            'service_area' => ServiceArea::class,
             'stock_quantity' => 'integer',
             'is_active' => 'boolean',
         ];
@@ -41,5 +44,10 @@ class Product extends Model
     public function saleItems(): HasMany
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function activityLabel(): string
+    {
+        return "Produit {$this->name}";
     }
 }

@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
+use Database\Factories\ExpenseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Expense extends Model
 {
-    /** @use HasFactory<\Database\Factories\ExpenseFactory> */
-    use HasFactory;
+    /** @use HasFactory<ExpenseFactory> */
+    use HasFactory, LogsActivity;
 
     public const CATEGORIES = [
         'matieres_premieres' => 'Matières premières',
@@ -37,5 +39,10 @@ class Expense extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function activityLabel(): string
+    {
+        return "Dépense {$this->description}";
     }
 }

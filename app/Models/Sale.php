@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
+use App\Enums\ServiceArea;
+use App\Models\Concerns\LogsActivity;
+use Database\Factories\SaleFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,8 +16,8 @@ use Illuminate\Support\Carbon;
 
 class Sale extends Model
 {
-    /** @use HasFactory<\Database\Factories\SaleFactory> */
-    use HasFactory;
+    /** @use HasFactory<SaleFactory> */
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'receipt_number',
@@ -36,7 +39,7 @@ class Sale extends Model
     {
         return [
             'payment_method' => PaymentMethod::class,
-            'service_area' => \App\Enums\ServiceArea::class,
+            'service_area' => ServiceArea::class,
             'sale_status' => SaleStatus::class,
             'total_amount' => 'integer',
             'amount_given' => 'integer',
@@ -82,5 +85,10 @@ class Sale extends Model
     public function canceledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'canceled_by');
+    }
+
+    public function activityLabel(): string
+    {
+        return 'Vente '.($this->receipt_number ?? '#'.$this->id);
     }
 }

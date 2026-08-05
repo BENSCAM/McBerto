@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Controllers\Pos\OfflineSaleSyncController;
 use App\Livewire\Admin\UserManagement;
 use App\Livewire\Dashboard\Overview;
 use App\Livewire\Pos\CashRegisterClosing;
 use App\Livewire\Pos\ClosingHistory;
 use App\Livewire\Pos\Terminal;
 use App\Livewire\Reports\DailyReport;
-use App\Http\Controllers\Pos\OfflineSaleSyncController;
+use App\Livewire\System\ActivityHistory;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -29,6 +30,7 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('/products', 'products.index')->name('products.index');
         Volt::route('/expenses', 'expenses.index')->name('expenses.index');
         Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
+        Route::get('/system/history', ActivityHistory::class)->name('system.history');
     });
 
     Route::middleware('role:owner')->group(function () {

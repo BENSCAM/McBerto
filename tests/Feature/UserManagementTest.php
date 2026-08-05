@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\Admin\UserManagement;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
 use Tests\TestCase;
 

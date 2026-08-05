@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
+use Database\Factories\CashRegisterClosingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,8 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class CashRegisterClosing extends Model
 {
-    /** @use HasFactory<\Database\Factories\CashRegisterClosingFactory> */
-    use HasFactory;
+    /** @use HasFactory<CashRegisterClosingFactory> */
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'closing_date',
@@ -51,6 +53,11 @@ class CashRegisterClosing extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class);
+    }
+
+    public function activityLabel(): string
+    {
+        return 'Clôture caisse '.$this->closing_date?->format('d/m/Y');
     }
 
     /**
