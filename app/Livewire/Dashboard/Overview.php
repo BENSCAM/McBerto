@@ -3,6 +3,7 @@
 namespace App\Livewire\Dashboard;
 
 use App\Enums\PaymentMethod;
+use App\Enums\SaleStatus;
 use App\Models\CashRegisterClosing;
 use App\Models\Expense;
 use App\Models\Sale;
@@ -14,7 +15,14 @@ use Livewire\Component;
 
 class Overview extends Component
 {
+    public string $dashboardPeriod = 'day';
+
     public string $period = '7d';
+
+    public function updatedDashboardPeriod(): void
+    {
+        $this->dispatch('period-breakdown-updated', chart: $this->periodBreakdown());
+    }
 
     public function updatedPeriod(): void
     {
@@ -92,6 +100,99 @@ class Overview extends Component
         return $this->percentChange($this->todayNetProfit, $this->yesterdayNetProfit);
     }
 
+    #[Computed]
+    public function periodLabel(): string
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return match ($this->dashboardPeriod) {
+            'month' => $start->translatedFormat('F Y'),
+            'year' => $start->format('Y'),
+            default => $start->format('d/m/Y'),
+        };
+    }
+
+    #[Computed]
+    public function periodRevenue(): int
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->revenueForRange($start, $end);
+    }
+
+    #[Computed]
+    public function periodOrdersCount(): int
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->ordersCountForRange($start, $end);
+    }
+
+    #[Computed]
+    public function periodAverageTicket(): int
+    {
+        return $this->periodOrdersCount > 0
+            ? (int) round($this->periodRevenue / $this->periodOrdersCount)
+            : 0;
+    }
+
+    #[Computed]
+    public function periodExpenses(): int
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return (int) Expense::whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->sum('amount');
+    }
+
+    #[Computed]
+    public function periodNetProfit(): int
+    {
+        return $this->periodRevenue - $this->periodExpenses;
+    }
+
+    #[Computed]
+    public function previousPeriodRevenue(): int
+    {
+        [$start, $end] = $this->previousDashboardRange();
+
+        return $this->revenueForRange($start, $end);
+    }
+
+    #[Computed]
+    public function previousPeriodOrdersCount(): int
+    {
+        [$start, $end] = $this->previousDashboardRange();
+
+        return $this->ordersCountForRange($start, $end);
+    }
+
+    #[Computed]
+    public function previousPeriodNetProfit(): int
+    {
+        [$start, $end] = $this->previousDashboardRange();
+        $expenses = (int) Expense::whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->sum('amount');
+
+        return $this->revenueForRange($start, $end) - $expenses;
+    }
+
+    #[Computed]
+    public function periodRevenueChangePercent(): ?float
+    {
+        return $this->percentChange($this->periodRevenue, $this->previousPeriodRevenue);
+    }
+
+    #[Computed]
+    public function periodOrdersChangePercent(): ?float
+    {
+        return $this->percentChange($this->periodOrdersCount, $this->previousPeriodOrdersCount);
+    }
+
+    #[Computed]
+    public function periodNetProfitChangePercent(): ?float
+    {
+        return $this->percentChange($this->periodNetProfit, $this->previousPeriodNetProfit);
+    }
+
     /**
      * Null means "no baseline to compare against" (yesterday was zero),
      * rendered as "Nouveau" rather than a misleading infinite percentage.
@@ -114,7 +215,8 @@ class Overview extends Component
     #[Computed]
     public function paymentMethodBreakdown(): array
     {
-        $sales = $this->effectiveSalesQuery($this->periodStart())->get();
+        [$start, $end] = $this->dashboardRange();
+        $sales = $this->effectiveSalesQuery($start, $end)->get();
         $total = $sales->sum('total_amount');
 
         return collect(PaymentMethod::cases())
@@ -136,10 +238,12 @@ class Overview extends Component
     #[Computed]
     public function topProducts()
     {
+        [$start, $end] = $this->dashboardRange();
+
         return SaleItem::query()
             ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->where('sales.created_at', '>=', $this->periodStart())
-            ->where('sales.sale_status', \App\Enums\SaleStatus::Completed)
+            ->whereBetween('sales.created_at', [$start, $end])
+            ->where('sales.sale_status', SaleStatus::Completed)
             ->where(function ($query) {
                 $query->whereNotNull('sales.cash_register_closing_id')
                     ->orWhereNotExists(function ($subQuery) {
@@ -175,6 +279,15 @@ class Overview extends Component
         return ['labels' => $labels, 'values' => $values];
     }
 
+    public function periodBreakdown(): array
+    {
+        return match ($this->dashboardPeriod) {
+            'month' => $this->currentMonthDailySeries(),
+            'year' => $this->currentYearMonthlySeries(),
+            default => $this->hourlySales(),
+        };
+    }
+
     public function chartData(): array
     {
         return match ($this->period) {
@@ -190,6 +303,24 @@ class Overview extends Component
             '30d' => now()->subDays(29)->startOfDay(),
             '12m' => now()->subMonths(11)->startOfMonth(),
             default => now()->subDays(6)->startOfDay(),
+        };
+    }
+
+    protected function dashboardRange(): array
+    {
+        return match ($this->dashboardPeriod) {
+            'month' => [now()->startOfMonth(), now()->endOfMonth()],
+            'year' => [now()->startOfYear(), now()->endOfYear()],
+            default => [now()->startOfDay(), now()->endOfDay()],
+        };
+    }
+
+    protected function previousDashboardRange(): array
+    {
+        return match ($this->dashboardPeriod) {
+            'month' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
+            'year' => [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
+            default => [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
         };
     }
 
@@ -219,6 +350,42 @@ class Overview extends Component
             ->whereNull('cash_register_closing_id')
             ->whereDate('created_at', $day)
             ->count();
+    }
+
+    protected function revenueForRange(Carbon $start, Carbon $end): int
+    {
+        $closedTotal = (int) CashRegisterClosing::whereBetween('closing_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('total_amount');
+
+        $openSalesTotal = (int) Sale::completed()
+            ->whereNull('cash_register_closing_id')
+            ->whereNotExists(function ($subQuery) {
+                $subQuery->selectRaw('1')
+                    ->from('cash_register_closings')
+                    ->whereRaw('date(cash_register_closings.closing_date) = date(sales.created_at)');
+            })
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('total_amount');
+
+        return $closedTotal + $openSalesTotal;
+    }
+
+    protected function ordersCountForRange(Carbon $start, Carbon $end): int
+    {
+        $closedCount = (int) CashRegisterClosing::whereBetween('closing_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('total_orders_count');
+
+        $openSalesCount = Sale::completed()
+            ->whereNull('cash_register_closing_id')
+            ->whereNotExists(function ($subQuery) {
+                $subQuery->selectRaw('1')
+                    ->from('cash_register_closings')
+                    ->whereRaw('date(cash_register_closings.closing_date) = date(sales.created_at)');
+            })
+            ->whereBetween('created_at', [$start, $end])
+            ->count();
+
+        return $closedCount + $openSalesCount;
     }
 
     protected function effectiveSalesQuery(?Carbon $start = null, ?Carbon $end = null)
@@ -289,11 +456,43 @@ class Overview extends Component
         return ['labels' => $labels, 'values' => $values];
     }
 
+    protected function currentMonthDailySeries(): array
+    {
+        $start = now()->startOfMonth();
+        $days = now()->daysInMonth;
+
+        $labels = [];
+        $values = [];
+
+        for ($i = 0; $i < $days; $i++) {
+            $date = $start->copy()->addDays($i);
+            $labels[] = $date->format('d/m');
+            $values[] = $this->revenueForDay($date);
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
+    protected function currentYearMonthlySeries(): array
+    {
+        $labels = [];
+        $values = [];
+
+        for ($month = 1; $month <= 12; $month++) {
+            $date = now()->month($month)->startOfMonth();
+            $labels[] = $date->translatedFormat('M');
+            $values[] = $this->revenueForRange($date->copy()->startOfMonth(), $date->copy()->endOfMonth());
+        }
+
+        return ['labels' => $labels, 'values' => $values];
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {
         return view('livewire.dashboard.overview', [
             'chart' => $this->chartData(),
+            'periodBreakdown' => $this->periodBreakdown(),
         ]);
     }
 }

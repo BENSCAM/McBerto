@@ -110,6 +110,45 @@ class DashboardTest extends TestCase
             ->assertSet('todayNetProfit', 6000);
     }
 
+    public function test_dashboard_period_kpis_can_use_current_month(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 10000, 'created_at' => now()]);
+        Sale::factory()->create(['total_amount' => 5000, 'created_at' => now()->startOfMonth()->addDays(2)]);
+        Sale::factory()->create(['total_amount' => 99999, 'created_at' => now()->subMonth()]);
+        Expense::factory()->create(['amount' => 3000, 'expense_date' => now()->toDateString()]);
+        Expense::factory()->create(['amount' => 99999, 'expense_date' => now()->subMonth()->toDateString()]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('dashboardPeriod', 'month')
+            ->assertSet('periodRevenue', 15000)
+            ->assertSet('periodOrdersCount', 2)
+            ->assertSet('periodAverageTicket', 7500)
+            ->assertSet('periodExpenses', 3000)
+            ->assertSet('periodNetProfit', 12000);
+    }
+
+    public function test_dashboard_period_kpis_can_use_current_year(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 10000, 'created_at' => now()]);
+        Sale::factory()->create(['total_amount' => 5000, 'created_at' => now()->startOfYear()->addMonths(2)]);
+        Sale::factory()->create(['total_amount' => 99999, 'created_at' => now()->subYear()]);
+        Expense::factory()->create(['amount' => 4000, 'expense_date' => now()->startOfYear()->addMonth()->toDateString()]);
+        Expense::factory()->create(['amount' => 99999, 'expense_date' => now()->subYear()->toDateString()]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('dashboardPeriod', 'year')
+            ->assertSet('periodRevenue', 15000)
+            ->assertSet('periodOrdersCount', 2)
+            ->assertSet('periodExpenses', 4000)
+            ->assertSet('periodNetProfit', 11000);
+    }
+
     public function test_change_percent_compares_today_to_yesterday(): void
     {
         $manager = User::factory()->manager()->create();
@@ -153,6 +192,24 @@ class DashboardTest extends TestCase
         $this->assertEquals(7500, $breakdown[0]['amount']);
         $this->assertEquals(75.0, $breakdown[0]['percent']);
         $this->assertEquals(25.0, $breakdown[1]['percent']);
+    }
+
+    public function test_payment_method_breakdown_follows_dashboard_period(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['payment_method' => PaymentMethod::Cash, 'total_amount' => 10000, 'created_at' => now()->startOfMonth()->addDays(2)]);
+        Sale::factory()->create(['payment_method' => PaymentMethod::OrangeMoney, 'total_amount' => 99999, 'created_at' => now()->subMonth()]);
+
+        $breakdown = Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('dashboardPeriod', 'month')
+            ->instance()
+            ->paymentMethodBreakdown();
+
+        $this->assertCount(1, $breakdown);
+        $this->assertEquals('cash', $breakdown[0]['method']->value);
+        $this->assertEquals(10000, $breakdown[0]['amount']);
     }
 
     public function test_top_products_ranks_by_quantity_sold_within_the_period(): void
@@ -211,5 +268,28 @@ class DashboardTest extends TestCase
         $this->assertEquals(5000, $hourly['values'][19]);
         $this->assertEquals(0, $hourly['values'][0]);
         $this->assertEquals(10000, array_sum($hourly['values']));
+    }
+
+    public function test_period_breakdown_switches_between_day_month_and_year(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 3000, 'created_at' => now()->setTime(12, 0)]);
+        Sale::factory()->create(['total_amount' => 2000, 'created_at' => now()->startOfMonth()->addDays(2)]);
+
+        $component = Livewire::actingAs($manager)->test(Overview::class);
+
+        $day = $component->instance()->periodBreakdown();
+        $this->assertCount(24, $day['labels']);
+
+        $component->set('dashboardPeriod', 'month');
+        $month = $component->instance()->periodBreakdown();
+        $this->assertCount(now()->daysInMonth, $month['labels']);
+        $this->assertEquals(5000, array_sum($month['values']));
+
+        $component->set('dashboardPeriod', 'year');
+        $year = $component->instance()->periodBreakdown();
+        $this->assertCount(12, $year['labels']);
+        $this->assertEquals(5000, array_sum($year['values']));
     }
 }
