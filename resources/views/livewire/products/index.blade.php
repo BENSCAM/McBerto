@@ -1,8 +1,8 @@
 <?php
 
+use App\Enums\ServiceArea;
 use App\Models\Category;
 use App\Models\Product;
-use App\Enums\ServiceArea;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
@@ -58,6 +58,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public function edit(int $id): void
     {
+        $this->resetErrorBag();
+        $this->notice = null;
         $product = Product::findOrFail($id);
         $this->editingId = $product->id;
         $this->name = $product->name;
@@ -74,6 +76,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function save(): void
     {
+        $this->resetErrorBag();
         $this->validate();
         $this->notice = null;
 
@@ -87,11 +90,14 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($this->editingId) {
             Product::findOrFail($this->editingId)->update($data);
+            $this->notice = 'Produit mis à jour.';
         } else {
             Product::create($data);
+            $this->notice = 'Produit ajouté.';
         }
 
         $this->reset(['editingId', 'name', 'emoji', 'price', 'service_area', 'category_id']);
+        $this->dispatch('product-catalog-changed');
     }
 
     public function toggleActive(int $id): void
@@ -99,6 +105,8 @@ new #[Layout('layouts.app')] class extends Component
         $this->notice = null;
         $product = Product::findOrFail($id);
         $product->update(['is_active' => ! $product->is_active]);
+        $this->notice = $product->is_active ? 'Produit activé.' : 'Produit désactivé.';
+        $this->dispatch('product-catalog-changed');
     }
 
     public function delete(int $id): void
@@ -108,16 +116,27 @@ new #[Layout('layouts.app')] class extends Component
         if ($product->saleItems()->exists()) {
             $product->update(['is_active' => false]);
             $this->notice = 'Ce produit a déjà été vendu. Il a été désactivé pour conserver l’historique des ventes.';
+            $this->dispatch('product-catalog-changed');
 
             return;
         }
 
         $product->delete();
         $this->notice = 'Produit supprimé.';
+        $this->dispatch('product-catalog-changed');
     }
 }; ?>
 
 <div class="py-8">
+    <div
+        x-data
+        x-on:product-catalog-changed.window="
+            Object.keys(localStorage)
+                .filter((key) => key.startsWith('mcberto:offline-catalog:'))
+                .forEach((key) => localStorage.removeItem(key))
+        "
+    ></div>
+
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>

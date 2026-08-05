@@ -219,6 +219,26 @@ class PosTerminalTest extends TestCase
         $this->assertTrue($vipVisible->contains('id', $vipProduct->id));
     }
 
+    public function test_offline_catalog_excludes_inactive_products(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $activeProduct = Product::factory()->create(['category_id' => $category->id, 'name' => 'Produit actif', 'is_active' => true]);
+        $inactiveProduct = Product::factory()->create(['category_id' => $category->id, 'name' => 'Produit inactif', 'is_active' => false]);
+
+        $catalog = Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->instance()
+            ->offlineCatalog();
+
+        $productIds = collect($catalog['categories'])
+            ->flatMap(fn (array $category) => $category['products'])
+            ->pluck('id');
+
+        $this->assertTrue($productIds->contains($activeProduct->id));
+        $this->assertFalse($productIds->contains($inactiveProduct->id));
+    }
+
     public function test_cashier_can_complete_a_vip_sale_with_vip_product_price(): void
     {
         $cashier = User::factory()->cashier()->create();

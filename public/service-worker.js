@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mcberto-v2';
+const CACHE_NAME = 'mcberto-v3';
 const OFFLINE_URL = '/offline.html';
 const CORE_ASSETS = [
     OFFLINE_URL,

@@ -692,7 +692,7 @@
                 storageKey: 'mcberto:offline-sales:v1',
                 failedStorageKey: 'mcberto:offline-failed-sales:v1',
                 syncedStorageKey: 'mcberto:offline-synced-sales:v1',
-                catalogStorageKey: 'mcberto:offline-catalog:v2',
+                catalogStorageKey: 'mcberto:offline-catalog:v3',
                 offline: !navigator.onLine,
                 online: navigator.onLine,
                 syncing: false,
@@ -1186,6 +1186,10 @@
                 },
 
                 loadCatalog() {
+                    if (navigator.onLine) {
+                        return this.normalizeCatalog(catalog);
+                    }
+
                     try {
                         const stored = JSON.parse(localStorage.getItem(this.catalogStorageKey) || 'null');
 
