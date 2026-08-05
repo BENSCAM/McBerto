@@ -125,6 +125,22 @@ new #[Layout('layouts.app')] class extends Component
         $this->notice = 'Produit supprimé.';
         $this->dispatch('product-catalog-changed');
     }
+
+    public function deactivateAll(): void
+    {
+        $this->notice = null;
+
+        $count = Product::where('is_active', true)->count();
+
+        Product::where('is_active', true)
+            ->each(fn (Product $product) => $product->update(['is_active' => false]));
+
+        $this->notice = $count > 0
+            ? "{$count} produit(s) désactivé(s)."
+            : 'Aucun produit actif à désactiver.';
+
+        $this->dispatch('product-catalog-changed');
+    }
 }; ?>
 
 <div class="py-8">
@@ -143,6 +159,16 @@ new #[Layout('layouts.app')] class extends Component
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Produits</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Catalogue standard et VIP utilisé par la caisse.</p>
             </div>
+
+            <button
+                type="button"
+                x-on:click="$store.confirmModal.open('Désactiver tous les produits ? Ils ne seront plus visibles à la caisse, mais resteront dans le catalogue pour être réactivés plus tard.', () => $wire.deactivateAll())"
+                wire:loading.attr="disabled"
+                wire:target="deactivateAll"
+                class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-50"
+            >
+                Désactiver tous les produits
+            </button>
         </div>
 
         @if ($notice)

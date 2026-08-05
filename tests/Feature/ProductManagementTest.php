@@ -160,6 +160,21 @@ class ProductManagementTest extends TestCase
         ]);
     }
 
+    public function test_manager_can_deactivate_all_products(): void
+    {
+        $manager = User::factory()->manager()->create();
+        Product::factory()->count(3)->create(['is_active' => true]);
+        Product::factory()->create(['is_active' => false]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->call('deactivateAll')
+            ->assertSet('notice', '3 produit(s) désactivé(s).');
+
+        $this->assertSame(0, Product::where('is_active', true)->count());
+        $this->assertSame(4, Product::count());
+    }
+
     public function test_manager_can_soft_delete_a_product(): void
     {
         $manager = User::factory()->manager()->create();
