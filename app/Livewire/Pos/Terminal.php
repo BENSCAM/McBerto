@@ -403,13 +403,14 @@ class Terminal extends Component
         unset($this->recentSales);
     }
 
-    public function completeClientSale(array $items, string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null): void
+    public function completeClientSale(array $items, string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null, ?string $serviceArea = null): void
     {
         if ($this->todayClosing) {
             return;
         }
 
-        $cart = $this->validatedClientCart($items);
+        $serviceArea = ServiceArea::from($serviceArea ?? $this->activeServiceArea);
+        $cart = $this->validatedClientCart($items, $serviceArea);
 
         if (empty($cart)) {
             return;
@@ -433,8 +434,6 @@ class Terminal extends Component
             $amountGiven = null;
             $changeDue = null;
         }
-
-        $serviceArea = ServiceArea::from($this->activeServiceArea);
 
         $sale = DB::transaction(function () use ($cart, $method, $serviceArea, $total, $amountGiven, $changeDue) {
             $sale = Sale::create([
@@ -480,7 +479,7 @@ class Terminal extends Component
         unset($this->recentSales);
     }
 
-    protected function validatedClientCart(array $items): array
+    protected function validatedClientCart(array $items, ServiceArea $serviceArea): array
     {
         $productIds = collect($items)
             ->pluck('product_id')
@@ -494,7 +493,7 @@ class Terminal extends Component
         }
 
         $products = Product::where('is_active', true)
-            ->where('service_area', $this->activeServiceArea)
+            ->where('service_area', $serviceArea)
             ->whereIn('id', $productIds)
             ->get()
             ->keyBy('id');

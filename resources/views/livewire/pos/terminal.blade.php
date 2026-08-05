@@ -19,22 +19,22 @@
             @unless ($this->todayClosing)
                 <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto" x-show="!offline">
                     <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
-                        @foreach ($this->serviceAreaOptions() as $serviceArea)
+                        <template x-for="area in catalog.serviceAreas" :key="`online-area-${area.value}`">
                             <button
                                 type="button"
-                                x-on:click="onlineCart = {}; closeOnlineCheckout()"
-                                wire:click="selectServiceArea('{{ $serviceArea->value }}')"
-                                wire:loading.attr="disabled"
-                                wire:target="selectServiceArea"
-                                class="px-3 py-1.5 rounded text-sm font-medium {{ $activeServiceArea === $serviceArea->value ? 'bg-brand-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}"
-                            >{{ $serviceArea->label() }}</button>
-                        @endforeach
+                                x-on:click="selectOnlineServiceArea(area.value)"
+                                class="px-3 py-1.5 rounded text-sm font-medium"
+                                :class="onlineServiceArea === area.value ? 'bg-brand-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                                x-text="area.label"
+                            ></button>
+                        </template>
                     </div>
 
                     <div class="relative w-full sm:w-64">
                         <input
                             type="text"
-                            wire:model.live.debounce.300ms="search"
+                            x-model="onlineSearch"
+                            x-on:input="onlineActiveCategoryId = null"
                             placeholder="Rechercher un produit…"
                             class="w-full pl-9 pr-3 py-2 text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
                         >
@@ -227,54 +227,47 @@
         <div x-show="!offline" class="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4 lg:h-[calc(100vh-15rem)]">
             <!-- Categories -->
             <div class="min-w-0 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto lg:h-full lg:min-h-0 pb-1 lg:pb-0">
-                @foreach ($this->categoriesWithProducts as $category)
+                <template x-for="category in onlineCategories()" :key="`online-category-${category.id}`">
                     <button
-                        wire:click="selectCategory({{ $category->id }})"
-                        wire:loading.attr="disabled"
-                        wire:loading.class="opacity-50 cursor-wait"
-                        wire:target="selectCategory({{ $category->id }})"
-                        class="shrink-0 lg:w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-md text-sm font-medium text-left transition {{ $activeCategoryId === $category->id && trim($search) === '' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-400' }}"
+                        type="button"
+                        x-on:click="selectOnlineCategory(category.id)"
+                        class="shrink-0 lg:w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-md text-sm font-medium text-left transition"
+                        :class="onlineActiveCategoryId === category.id && onlineSearch.trim() === '' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-400'"
                     >
-                        <span>{{ $category->name }}</span>
-                        <span class="text-xs {{ $activeCategoryId === $category->id && trim($search) === '' ? 'text-white/80' : 'text-gray-400 dark:text-gray-500' }}">{{ $category->products->count() }}</span>
+                        <span x-text="category.name"></span>
+                        <span
+                            class="text-xs"
+                            :class="onlineActiveCategoryId === category.id && onlineSearch.trim() === '' ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'"
+                            x-text="category.products.filter(product => product.service_area === onlineServiceArea).length"
+                        ></span>
                     </button>
-                @endforeach
+                </template>
             </div>
 
             <!-- Products -->
             <div class="min-w-0 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-                @if ($this->visibleProducts->isEmpty())
+                <template x-if="onlineVisibleProducts().length === 0">
                     <div class="flex flex-col items-center justify-center text-center py-16 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
                         <span class="text-3xl mb-2">🔎</span>
-                        <p class="text-sm">
-                            @if (trim($search) !== '')
-                                Aucun produit ne correspond à « {{ $search }} ».
-                            @else
-                                Aucun produit dans cette catégorie.
-                            @endif
-                        </p>
+                        <p class="text-sm" x-text="onlineSearch.trim() !== '' ? `Aucun produit ne correspond à « ${onlineSearch} ».` : 'Aucun produit dans cette catégorie.'"></p>
                     </div>
-                @else
+                </template>
+
+                <template x-if="onlineVisibleProducts().length > 0">
                     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                        @foreach ($this->visibleProducts as $product)
+                        <template x-for="product in onlineVisibleProducts()" :key="`online-product-${product.id}`">
                             <button
                                 type="button"
-                                x-on:click="addOnlineProduct(@js([
-                                    'id' => $product->id,
-                                    'name' => $product->name,
-                                    'emoji' => $product->emoji,
-                                    'price' => $product->price,
-                                ]))"
-                                wire:key="product-{{ $product->id }}"
+                                x-on:click="addOnlineProduct(product)"
                                 class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition"
                             >
-                                <div class="text-3xl mb-2">{{ $product->emoji }}</div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100 leading-snug">{{ $product->name }}</div>
-                                <div class="text-sm text-brand-600 dark:text-brand-400 font-semibold mt-1">{{ number_format($product->price, 0, ',', ' ') }} FCFA</div>
+                                <div class="text-3xl mb-2" x-text="product.emoji || '•'"></div>
+                                <div class="font-medium text-gray-900 dark:text-gray-100 leading-snug" x-text="product.name"></div>
+                                <div class="text-sm text-brand-600 dark:text-brand-400 font-semibold mt-1" x-text="formatMoney(product.price)"></div>
                             </button>
-                        @endforeach
+                        </template>
                     </div>
-                @endif
+                </template>
             </div>
 
             <!-- Cart + recent sales -->
@@ -683,6 +676,9 @@
                 offlineCart: {},
                 offlinePaymentMethod: 'cash',
                 offlineAmountGiven: 0,
+                onlineServiceArea: 'standard',
+                onlineActiveCategoryId: null,
+                onlineSearch: '',
                 onlineCart: {},
                 onlineCheckoutOpen: false,
                 onlineCheckoutMethod: null,
@@ -694,6 +690,7 @@
                 init() {
                     this.catalog = this.loadCatalog();
                     this.saveCatalog(this.catalog);
+                    this.onlineActiveCategoryId = this.onlineCategories()[0]?.id ?? null;
                     this.pendingSales = this.loadPendingSales();
                     this.failedSales = this.loadFailedSales();
 
@@ -721,6 +718,54 @@
                         .flatMap(category => category.products)
                         .filter(product => product.service_area === this.serviceArea)
                         .filter(product => query === '' || product.name.toLowerCase().includes(query));
+                },
+
+                onlineCategories() {
+                    return this.catalog.categories
+                        .map(category => ({
+                            ...category,
+                            products: category.products.filter(product => product.service_area === this.onlineServiceArea),
+                        }))
+                        .filter(category => category.products.length > 0);
+                },
+
+                onlineVisibleProducts() {
+                    const query = this.onlineSearch.trim().toLowerCase();
+                    const products = this.catalog.categories
+                        .flatMap(category => category.products)
+                        .filter(product => product.service_area === this.onlineServiceArea);
+
+                    if (query !== '') {
+                        return products.filter(product => product.name.toLowerCase().includes(query));
+                    }
+
+                    const activeCategory = this.onlineCategories().find(category => category.id === this.onlineActiveCategoryId)
+                        ?? this.onlineCategories()[0];
+
+                    if (!activeCategory) {
+                        return [];
+                    }
+
+                    if (this.onlineActiveCategoryId !== activeCategory.id) {
+                        this.onlineActiveCategoryId = activeCategory.id;
+                    }
+
+                    return activeCategory.products;
+                },
+
+                selectOnlineCategory(categoryId) {
+                    this.onlineActiveCategoryId = categoryId;
+                    this.onlineSearch = '';
+                },
+
+                selectOnlineServiceArea(serviceArea) {
+                    if (this.onlineServiceArea === serviceArea) return;
+
+                    this.onlineServiceArea = serviceArea;
+                    this.onlineActiveCategoryId = this.onlineCategories()[0]?.id ?? null;
+                    this.onlineSearch = '';
+                    this.onlineCart = {};
+                    this.closeOnlineCheckout();
                 },
 
                 addOfflineProduct(product) {
@@ -858,6 +903,7 @@
                             paymentMethod,
                             amountGiven,
                             changeDue,
+                            this.onlineServiceArea,
                         );
 
                         this.onlineCart = {};
