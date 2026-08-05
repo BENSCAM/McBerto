@@ -93,6 +93,33 @@ class PosTerminalTest extends TestCase
         ]);
     }
 
+    public function test_cashier_can_complete_a_client_side_vip_cart_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create([
+            'category_id' => $category->id,
+            'price' => 4200,
+            'service_area' => ServiceArea::Vip,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ], 'cash', 10000, 1600, 'vip')
+            ->assertSet('lastSaleReceipt.total', 8400)
+            ->assertSet('lastSaleReceipt.service_area', ServiceArea::Vip);
+
+        $this->assertDatabaseHas('sales', [
+            'user_id' => $cashier->id,
+            'service_area' => 'vip',
+            'total_amount' => 8400,
+            'amount_given' => 10000,
+            'change_due' => 1600,
+        ]);
+    }
+
     public function test_receipt_can_be_dismissed_after_a_sale(): void
     {
         $cashier = User::factory()->cashier()->create();

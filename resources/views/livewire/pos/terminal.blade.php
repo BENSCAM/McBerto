@@ -291,7 +291,7 @@
 
                     <template x-if="onlineCartCount() > 0">
                         <div class="flex flex-col min-h-0">
-                            <div class="flex-1 min-h-[4rem] lg:min-h-0 overflow-y-auto space-y-3 mb-4 pr-1">
+                            <div class="max-h-56 overflow-y-auto space-y-3 mb-4 pr-1">
                                 <template x-for="item in onlineCartItems()" :key="item.product_id">
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="flex-1 min-w-0">
@@ -666,7 +666,7 @@
                 syncUrl,
                 storageKey: 'mcberto:offline-sales:v1',
                 failedStorageKey: 'mcberto:offline-failed-sales:v1',
-                catalogStorageKey: 'mcberto:offline-catalog:v1',
+                catalogStorageKey: 'mcberto:offline-catalog:v2',
                 offline: !navigator.onLine,
                 online: navigator.onLine,
                 syncing: false,
@@ -769,14 +769,18 @@
                 },
 
                 addOfflineProduct(product) {
-                    if (this.offlineCart[product.id]) {
-                        this.offlineCart[product.id].quantity++;
+                    const normalized = this.normalizeProduct(product);
+
+                    if (!normalized) return;
+
+                    if (this.offlineCart[normalized.id]) {
+                        this.offlineCart[normalized.id].quantity++;
                     } else {
-                        this.offlineCart[product.id] = {
-                            product_id: product.id,
-                            product_name: product.name,
-                            emoji: product.emoji,
-                            unit_price: product.price,
+                        this.offlineCart[normalized.id] = {
+                            product_id: normalized.id,
+                            product_name: normalized.name,
+                            emoji: normalized.emoji,
+                            unit_price: normalized.price,
                             quantity: 1,
                         };
                     }
@@ -787,14 +791,18 @@
                 },
 
                 addOnlineProduct(product) {
-                    if (this.onlineCart[product.id]) {
-                        this.onlineCart[product.id].quantity++;
+                    const normalized = this.normalizeProduct(product);
+
+                    if (!normalized) return;
+
+                    if (this.onlineCart[normalized.id]) {
+                        this.onlineCart[normalized.id].quantity++;
                     } else {
-                        this.onlineCart[product.id] = {
-                            product_id: product.id,
-                            product_name: product.name,
-                            emoji: product.emoji,
-                            unit_price: product.price,
+                        this.onlineCart[normalized.id] = {
+                            product_id: normalized.id,
+                            product_name: normalized.name,
+                            emoji: normalized.emoji,
+                            unit_price: normalized.price,
                             quantity: 1,
                         };
                     }
@@ -838,11 +846,13 @@
                 },
 
                 onlineCartCount() {
-                    return this.onlineCartItems().reduce((total, item) => total + item.quantity, 0);
+                    return this.onlineCartItems().reduce((total, item) => total + Number(item.quantity || 0), 0);
                 },
 
                 onlineCartTotal() {
-                    return this.onlineCartItems().reduce((total, item) => total + item.unit_price * item.quantity, 0);
+                    return this.onlineCartItems().reduce((total, item) => {
+                        return total + Number(item.unit_price || 0) * Number(item.quantity || 0);
+                    }, 0);
                 },
 
                 openOnlineCheckout() {
@@ -1087,15 +1097,42 @@
                         const stored = JSON.parse(localStorage.getItem(this.catalogStorageKey) || 'null');
 
                         if (stored && Array.isArray(stored.categories)) {
-                            return stored;
+                            return this.normalizeCatalog(stored);
                         }
                     } catch (error) {}
 
-                    return catalog;
+                    return this.normalizeCatalog(catalog);
                 },
 
                 saveCatalog(nextCatalog) {
-                    localStorage.setItem(this.catalogStorageKey, JSON.stringify(nextCatalog));
+                    localStorage.setItem(this.catalogStorageKey, JSON.stringify(this.normalizeCatalog(nextCatalog)));
+                },
+
+                normalizeCatalog(nextCatalog) {
+                    return {
+                        ...nextCatalog,
+                        categories: (nextCatalog.categories || []).map(category => ({
+                            ...category,
+                            products: (category.products || [])
+                                .map(product => this.normalizeProduct(product))
+                                .filter(Boolean),
+                        })),
+                    };
+                },
+
+                normalizeProduct(product) {
+                    const id = Number(product.id ?? product.product_id);
+                    const price = Number(product.price ?? product.unit_price ?? 0);
+
+                    if (!Number.isFinite(id) || id <= 0) return null;
+
+                    return {
+                        id,
+                        name: product.name ?? product.product_name ?? '',
+                        emoji: product.emoji ?? '',
+                        price: Number.isFinite(price) ? price : 0,
+                        service_area: product.service_area ?? this.onlineServiceArea,
+                    };
                 },
 
                 uuid() {
@@ -1107,7 +1144,9 @@
                 },
 
                 formatMoney(amount) {
-                    return `${Number(amount || 0).toLocaleString('fr-FR')} FCFA`;
+                    const value = Number(amount);
+
+                    return `${Number.isFinite(value) ? value.toLocaleString('fr-FR') : '0'} FCFA`;
                 },
             };
         }
