@@ -133,11 +133,11 @@
                             <button
                                 type="button"
                                 x-on:click="addOfflineProduct(product)"
-                                class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition"
+                                class="h-44 min-w-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition flex flex-col overflow-hidden"
                             >
-                                <div class="text-3xl mb-2" x-text="product.emoji || '•'"></div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100 leading-snug" x-text="product.name"></div>
-                                <div class="text-sm text-brand-600 dark:text-brand-400 font-semibold mt-1" x-text="formatMoney(product.price)"></div>
+                                <div class="text-3xl mb-3 shrink-0" x-text="product.emoji || '•'"></div>
+                                <div class="min-h-[4.25rem] font-medium text-gray-900 dark:text-gray-100 leading-snug overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical] [overflow-wrap:anywhere]" x-text="product.name"></div>
+                                <div class="mt-auto text-sm text-brand-600 dark:text-brand-400 font-semibold" x-text="formatMoney(product.price)"></div>
                             </button>
                         </template>
                     </div>
@@ -228,7 +228,7 @@
                                             <button type="button" x-on:click="removeFailedSale(sale.offline_uuid)" class="text-xs text-red-600 dark:text-red-200 underline">Retirer</button>
                                         </div>
                                     </div>
-                                    <div class="text-xs text-red-600 dark:text-red-200" x-text="sale.error_message || 'Synchronisation refusée.'"></div>
+                                    <div class="text-xs text-red-600 dark:text-red-200 break-words [overflow-wrap:anywhere]" x-text="sale.error_message || 'Synchronisation refusée.'"></div>
                                 </div>
                             </template>
 
@@ -239,7 +239,7 @@
                                         <span class="font-medium text-green-800 dark:text-green-100" x-text="sale.receipt_number || 'Synchronisée'"></span>
                                     </div>
                                     <template x-if="sale.warning_message">
-                                        <div class="text-xs text-amber-700 dark:text-amber-200" x-text="sale.warning_message"></div>
+                                        <div class="text-xs text-amber-700 dark:text-amber-200 break-words [overflow-wrap:anywhere]" x-text="sale.warning_message"></div>
                                     </template>
                                 </div>
                             </template>
@@ -284,11 +284,11 @@
                             <button
                                 type="button"
                                 x-on:click="addOnlineProduct(product)"
-                                class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition"
+                                class="h-44 min-w-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-left hover:border-brand-500 hover:shadow-md transition flex flex-col overflow-hidden"
                             >
-                                <div class="text-3xl mb-2" x-text="product.emoji || '•'"></div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100 leading-snug" x-text="product.name"></div>
-                                <div class="text-sm text-brand-600 dark:text-brand-400 font-semibold mt-1" x-text="formatMoney(product.price)"></div>
+                                <div class="text-3xl mb-3 shrink-0" x-text="product.emoji || '•'"></div>
+                                <div class="min-h-[4.25rem] font-medium text-gray-900 dark:text-gray-100 leading-snug overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical] [overflow-wrap:anywhere]" x-text="product.name"></div>
+                                <div class="mt-auto text-sm text-brand-600 dark:text-brand-400 font-semibold" x-text="formatMoney(product.price)"></div>
                             </button>
                         </template>
                     </div>
@@ -321,7 +321,7 @@
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="flex-1 min-w-0">
                                             <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                                <span class="mr-1" x-text="item.emoji || ''"></span><span x-text="item.product_name"></span>
+                                                <span class="mr-1" x-text="item.emoji || ''"></span><span class="break-words [overflow-wrap:anywhere]" x-text="item.product_name"></span>
                                             </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(item.unit_price)"></div>
                                         </div>
