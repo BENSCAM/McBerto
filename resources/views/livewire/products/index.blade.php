@@ -43,7 +43,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function emojiSuggestions(): array
     {
-        return ['🍔', '🍟', '🍗', '🍕', '🌮', '🥪', '🍿', '🥤', '☕', '🧃', '🍦', '🍩', '🍪', '🥗', '🧀', '🍳'];
+        return ['🍔', '🍟', '🍗', '🍕', '🌮', '🥪', '🥐', '🍿', '🥤', '☕', '🧃', '🍦', '🍩', '🍪', '🥗', '🧀', '🍳'];
     }
 
     public function serviceAreaOptions(): array
