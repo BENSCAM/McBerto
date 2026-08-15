@@ -19,11 +19,8 @@ class Overview extends Component
 
     public string $period = '7d';
 
-    public ?int $selectedOrderId = null;
-
     public function updatedDashboardPeriod(): void
     {
-        $this->selectedOrderId = null;
         $this->dispatch('period-breakdown-updated', chart: $this->periodBreakdown());
     }
 
@@ -260,42 +257,6 @@ class Overview extends Component
             ->orderByDesc('total_quantity')
             ->limit(5)
             ->get();
-    }
-
-    #[Computed]
-    public function orderHistory()
-    {
-        [$start, $end] = $this->dashboardRange();
-
-        return $this->effectiveSalesQuery($start, $end)
-            ->with(['items' => fn ($query) => $query->orderBy('id'), 'user'])
-            ->latest()
-            ->limit(20)
-            ->get();
-    }
-
-    #[Computed]
-    public function selectedOrderTicket(): ?Sale
-    {
-        if (! $this->selectedOrderId) {
-            return null;
-        }
-
-        [$start, $end] = $this->dashboardRange();
-
-        return $this->effectiveSalesQuery($start, $end)
-            ->with(['items' => fn ($query) => $query->orderBy('id'), 'user'])
-            ->find($this->selectedOrderId);
-    }
-
-    public function viewOrderTicket(int $saleId): void
-    {
-        $this->selectedOrderId = $saleId;
-    }
-
-    public function closeOrderTicket(): void
-    {
-        $this->selectedOrderId = null;
     }
 
     #[Computed]

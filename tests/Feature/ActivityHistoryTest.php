@@ -2,11 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PaymentMethod;
+use App\Livewire\System\ActivityHistory;
 use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ActivityHistoryTest extends TestCase
@@ -76,5 +81,80 @@ class ActivityHistoryTest extends TestCase
             'subject_type' => Product::class,
             'subject_id' => $product->id,
         ]);
+    }
+
+    public function test_activity_history_shows_cash_register_tickets(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Test']);
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'name' => 'Croissant chocolat']);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-20260814-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 3000,
+            'amount_given' => 5000,
+            'change_due' => 2000,
+            'created_at' => now(),
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'product_name' => 'Croissant chocolat',
+            'unit_price' => 1500,
+            'quantity' => 2,
+            'subtotal' => 3000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->assertSee('Tickets de caisse')
+            ->assertSee('MCB-20260814-0001')
+            ->assertSee('Caissier Test')
+            ->assertSee('3 000 FCFA')
+            ->assertSee('Voir');
+    }
+
+    public function test_manager_can_open_order_ticket_from_activity_history(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Ticket']);
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'name' => 'Menu Berto']);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-20260815-0007',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 7000,
+            'amount_given' => 10000,
+            'change_due' => 3000,
+            'created_at' => now(),
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'product_name' => 'Menu Berto',
+            'unit_price' => 3500,
+            'quantity' => 2,
+            'subtotal' => 7000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->call('viewOrderTicket', $sale->id)
+            ->assertSet('selectedOrderId', $sale->id)
+            ->assertSee('Ticket détaillé')
+            ->assertSee('MCB-20260815-0007')
+            ->assertSee('2 x Menu Berto')
+            ->assertSee('10 000 FCFA')
+            ->assertSee('3 000 FCFA')
+            ->call('closeOrderTicket')
+            ->assertSet('selectedOrderId', null)
+            ->assertDontSee('Ticket détaillé');
     }
 }
