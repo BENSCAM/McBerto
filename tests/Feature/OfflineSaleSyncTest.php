@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class OfflineSaleSyncTest extends TestCase
@@ -118,6 +119,45 @@ class OfflineSaleSyncTest extends TestCase
         $this->assertDatabaseHas('activity_logs', [
             'user_id' => $cashier->id,
             'action' => 'offline_sync',
+        ]);
+    }
+
+    public function test_offline_sync_does_not_crash_when_offline_reference_column_is_missing(): void
+    {
+        Schema::table('sales', function ($table) {
+            $table->dropColumn('offline_reference');
+        });
+
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['price' => 2500]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-without-column',
+                'offline_reference' => 'OFF-20260814-0002',
+                'created_at' => now()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 5000,
+                'amount_given' => 5000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 2500,
+                    'quantity' => 2,
+                    'subtotal' => 5000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('synced.0.offline_uuid', 'offline-sale-without-column')
+            ->assertJsonPath('synced.0.offline_reference', 'OFF-20260814-0002');
+
+        $this->assertDatabaseHas('sales', [
+            'offline_uuid' => 'offline-sale-without-column',
+            'total_amount' => 5000,
         ]);
     }
 

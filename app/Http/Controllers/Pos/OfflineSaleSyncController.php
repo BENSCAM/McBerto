@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class OfflineSaleSyncController extends Controller
@@ -44,6 +45,7 @@ class OfflineSaleSyncController extends Controller
         $synced = [];
         $failed = [];
         $warnings = [];
+        $hasOfflineReferenceColumn = Schema::hasColumn('sales', 'offline_reference');
 
         foreach ($validated['sales'] as $payload) {
             if ($sale = Sale::where('offline_uuid', $payload['offline_uuid'])->first()) {
@@ -93,11 +95,10 @@ class OfflineSaleSyncController extends Controller
 
             $priceWarnings = $this->priceWarnings($payload);
 
-            $sale = DB::transaction(function () use ($payload, $createdAt) {
-                $sale = new Sale([
+            $sale = DB::transaction(function () use ($payload, $createdAt, $hasOfflineReferenceColumn) {
+                $saleData = [
                     'receipt_number' => Sale::nextReceiptNumber($createdAt),
                     'offline_uuid' => $payload['offline_uuid'],
-                    'offline_reference' => $payload['offline_reference'] ?? null,
                     'user_id' => Auth::id(),
                     'payment_method' => PaymentMethod::from($payload['payment_method']),
                     'service_area' => ServiceArea::from($payload['service_area']),
@@ -105,7 +106,13 @@ class OfflineSaleSyncController extends Controller
                     'total_amount' => (int) $payload['total_amount'],
                     'amount_given' => $payload['amount_given'],
                     'change_due' => $payload['change_due'],
-                ]);
+                ];
+
+                if ($hasOfflineReferenceColumn) {
+                    $saleData['offline_reference'] = $payload['offline_reference'] ?? null;
+                }
+
+                $sale = new Sale($saleData);
                 $sale->created_at = $createdAt;
                 $sale->updated_at = now();
                 $sale->save();
@@ -130,7 +137,7 @@ class OfflineSaleSyncController extends Controller
                 'offline_uuid' => $payload['offline_uuid'],
                 'sale_id' => $sale->id,
                 'receipt_number' => $sale->receipt_number,
-                'offline_reference' => $sale->offline_reference,
+                'offline_reference' => $hasOfflineReferenceColumn ? $sale->offline_reference : ($payload['offline_reference'] ?? null),
                 'warnings' => $priceWarnings,
             ];
 
