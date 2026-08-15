@@ -75,6 +75,27 @@ class ActivityHistory extends Component
         $this->selectedOrderId = null;
     }
 
+    public function formatActivityValue(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Oui' : 'Non';
+        }
+
+        if (is_array($value)) {
+            if ($value === []) {
+                return 'Aucun';
+            }
+
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'Donnée non lisible';
+        }
+
+        return (string) $value;
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {

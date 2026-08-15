@@ -83,6 +83,30 @@ class ActivityHistoryTest extends TestCase
         ]);
     }
 
+    public function test_activity_history_can_render_nested_array_values(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        ActivityLog::create([
+            'user_id' => $manager->id,
+            'action' => 'offline_sync',
+            'description' => '1 vente offline synchronisée',
+            'new_values' => [
+                'synced' => [[
+                    'offline_uuid' => 'offline-sale-1',
+                    'receipt_number' => 'MCB-20260815-0001',
+                ]],
+                'failed' => [],
+            ],
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->assertSee('1 vente offline synchronisée')
+            ->assertSee('offline-sale-1')
+            ->assertSee('MCB-20260815-0001');
+    }
+
     public function test_activity_history_shows_cash_register_tickets(): void
     {
         $manager = User::factory()->manager()->create();

@@ -133,16 +133,16 @@
                                             @foreach ($log->new_values as $field => $value)
                                                 <div>
                                                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ str_replace('_', ' ', $field) }}</span> :
-                                                    <span class="text-gray-500 dark:text-gray-400">{{ data_get($log->old_values, $field, '—') }}</span>
+                                                    <span class="text-gray-500 dark:text-gray-400 break-words [overflow-wrap:anywhere]">{{ $this->formatActivityValue(data_get($log->old_values, $field)) }}</span>
                                                     <span class="text-gray-400">→</span>
-                                                    <span>{{ is_bool($value) ? ($value ? 'Oui' : 'Non') : $value }}</span>
+                                                    <span class="break-words [overflow-wrap:anywhere]">{{ $this->formatActivityValue($value) }}</span>
                                                 </div>
                                             @endforeach
                                         </div>
                                     @elseif ($log->new_values)
                                         <div class="text-xs leading-relaxed">
                                             @foreach (array_slice($log->new_values, 0, 5) as $field => $value)
-                                                <span class="inline-block mr-2"><span class="font-medium">{{ str_replace('_', ' ', $field) }}</span>: {{ is_bool($value) ? ($value ? 'Oui' : 'Non') : $value }}</span>
+                                                <span class="inline-block mr-2 break-words [overflow-wrap:anywhere]"><span class="font-medium">{{ str_replace('_', ' ', $field) }}</span>: {{ $this->formatActivityValue($value) }}</span>
                                             @endforeach
                                         </div>
                                     @else
