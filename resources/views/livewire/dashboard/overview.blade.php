@@ -225,13 +225,13 @@
             @if ($this->orderHistory->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">Aucune commande sur cette période.</p>
             @else
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                <div class="space-y-4">
                     @foreach ($this->orderHistory as $sale)
-                        <div class="py-4" wire:key="dashboard-order-history-{{ $sale->id }}">
-                            <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden" wire:key="dashboard-order-history-{{ $sale->id }}">
+                            <div class="bg-gray-50 dark:bg-gray-900 px-4 py-3 flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $sale->receipt_number ?? '#'.$sale->id }}</span>
+                                        <span class="font-medium text-gray-900 dark:text-gray-100">Ticket {{ $sale->receipt_number ?? '#'.$sale->id }}</span>
                                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $sale->service_area->label() }}</span>
                                     </div>
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -245,16 +245,49 @@
                                 </div>
                             </div>
 
-                            <div class="mt-3 space-y-2">
-                                @foreach ($sale->items as $item)
-                                    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
-                                        <div class="min-w-0 text-gray-700 dark:text-gray-300 break-words [overflow-wrap:anywhere]">
-                                            {{ $item->quantity }}× {{ $item->product_name }}
-                                            <span class="text-xs text-gray-500 dark:text-gray-400">({{ number_format($item->unit_price, 0, ',', ' ') }} FCFA)</span>
+                            <div class="px-4 py-3">
+                                <div class="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2">Constitution du ticket</div>
+
+                                <div class="hidden sm:grid grid-cols-[minmax(0,1fr)_90px_60px_110px] gap-3 text-xs font-medium text-gray-500 dark:text-gray-400 pb-2 border-b border-gray-100 dark:border-gray-700">
+                                    <div>Produit</div>
+                                    <div class="text-right">PU</div>
+                                    <div class="text-right">Qté</div>
+                                    <div class="text-right">Sous-total</div>
+                                </div>
+
+                                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                                    @foreach ($sale->items as $item)
+                                        <div class="py-2 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_90px_60px_110px] gap-3 text-sm">
+                                            <div class="min-w-0 text-gray-700 dark:text-gray-300 break-words [overflow-wrap:anywhere]">
+                                                {{ $item->product_name }}
+                                            </div>
+                                            <div class="text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ number_format($item->unit_price, 0, ',', ' ') }} FCFA</div>
+                                            <div class="text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ $item->quantity }}</div>
+                                            <div class="text-right font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ number_format($item->subtotal, 0, ',', ' ') }} FCFA</div>
                                         </div>
-                                        <div class="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ number_format($item->subtotal, 0, ',', ' ') }} FCFA</div>
+                                    @endforeach
+                                </div>
+
+                                <div class="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1 text-sm">
+                                    <div class="flex justify-between gap-3">
+                                        <span class="text-gray-500 dark:text-gray-400">Total ticket</span>
+                                        <span class="font-semibold text-gray-900 dark:text-gray-100">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
                                     </div>
-                                @endforeach
+                                    <div class="flex justify-between gap-3">
+                                        <span class="text-gray-500 dark:text-gray-400">Paiement</span>
+                                        <span class="text-gray-700 dark:text-gray-300">{{ $sale->payment_method->label() }}</span>
+                                    </div>
+                                    @if ($sale->amount_given !== null)
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-gray-500 dark:text-gray-400">Montant donné</span>
+                                            <span class="text-gray-700 dark:text-gray-300">{{ number_format($sale->amount_given, 0, ',', ' ') }} FCFA</span>
+                                        </div>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-gray-500 dark:text-gray-400">Monnaie rendue</span>
+                                            <span class="text-gray-700 dark:text-gray-300">{{ number_format($sale->change_due, 0, ',', ' ') }} FCFA</span>
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     @endforeach

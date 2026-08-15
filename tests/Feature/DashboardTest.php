@@ -242,7 +242,10 @@ class DashboardTest extends TestCase
         $sale = Sale::factory()->create([
             'user_id' => $cashier->id,
             'receipt_number' => 'MCB-20260814-0001',
+            'payment_method' => PaymentMethod::Cash,
             'total_amount' => 3000,
+            'amount_given' => 5000,
+            'change_due' => 2000,
             'created_at' => now(),
         ]);
 
@@ -258,9 +261,18 @@ class DashboardTest extends TestCase
         Livewire::actingAs($manager)
             ->test(Overview::class)
             ->assertSee('Historique des commandes')
-            ->assertSee('MCB-20260814-0001')
+            ->assertSee('Ticket MCB-20260814-0001')
+            ->assertSee('Constitution du ticket')
+            ->assertSee('Produit')
+            ->assertSee('PU')
+            ->assertSee('Qté')
+            ->assertSee('Sous-total')
             ->assertSee('Croissant chocolat')
-            ->assertSee('2×')
+            ->assertSee('1 500 FCFA')
+            ->assertSee('2')
+            ->assertSee('Total ticket')
+            ->assertSee('Montant donné')
+            ->assertSee('Monnaie rendue')
             ->assertSee('Caissier Test');
     }
 
