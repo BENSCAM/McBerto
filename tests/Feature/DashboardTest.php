@@ -232,6 +232,38 @@ class DashboardTest extends TestCase
         $this->assertEquals(5, $top->first()->total_quantity);
     }
 
+    public function test_dashboard_order_history_shows_order_items(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Test']);
+        $category = Category::factory()->create();
+        $croissant = Product::factory()->create(['category_id' => $category->id, 'name' => 'Croissant chocolat']);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-20260814-0001',
+            'total_amount' => 3000,
+            'created_at' => now(),
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_id' => $croissant->id,
+            'product_name' => 'Croissant chocolat',
+            'unit_price' => 1500,
+            'quantity' => 2,
+            'subtotal' => 3000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSee('Historique des commandes')
+            ->assertSee('MCB-20260814-0001')
+            ->assertSee('Croissant chocolat')
+            ->assertSee('2×')
+            ->assertSee('Caissier Test');
+    }
+
     public function test_today_closing_reflects_register_status(): void
     {
         $manager = User::factory()->manager()->create();

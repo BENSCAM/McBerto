@@ -212,5 +212,54 @@
                 @endif
             </div>
         </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                <div>
+                    <div class="font-medium text-gray-800 dark:text-gray-200">Historique des commandes</div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Contenu des 20 dernières commandes de la période affichée.</p>
+                </div>
+                <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $this->periodLabel }}</span>
+            </div>
+
+            @if ($this->orderHistory->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">Aucune commande sur cette période.</p>
+            @else
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                    @foreach ($this->orderHistory as $sale)
+                        <div class="py-4" wire:key="dashboard-order-history-{{ $sale->id }}">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $sale->receipt_number ?? '#'.$sale->id }}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $sale->service_area->label() }}</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        {{ $sale->created_at->format('d/m/Y H:i') }} · {{ $sale->payment_method->label() }} · {{ $sale->user?->name ?? 'Utilisateur supprimé' }}
+                                    </div>
+                                </div>
+
+                                <div class="text-right shrink-0">
+                                    <div class="font-semibold text-gray-900 dark:text-gray-100">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ $sale->items->sum('quantity') }} article(s)</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 space-y-2">
+                                @foreach ($sale->items as $item)
+                                    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
+                                        <div class="min-w-0 text-gray-700 dark:text-gray-300 break-words [overflow-wrap:anywhere]">
+                                            {{ $item->quantity }}× {{ $item->product_name }}
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">({{ number_format($item->unit_price, 0, ',', ' ') }} FCFA)</span>
+                                        </div>
+                                        <div class="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ number_format($item->subtotal, 0, ',', ' ') }} FCFA</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     </div>
 </div>

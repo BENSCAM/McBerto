@@ -297,7 +297,7 @@
 
             <!-- Cart + recent sales -->
             <div class="min-w-0 flex flex-col gap-4 lg:h-full lg:min-h-0">
-                <div id="cart-section" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col lg:min-h-0 lg:max-h-[65%]">
+                <div id="cart-section" wire:ignore class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col lg:min-h-0 lg:max-h-[65%]">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-semibold text-gray-800 dark:text-gray-200">
                             Panier
@@ -305,61 +305,57 @@
                         </h3>
                         <button
                             x-show="onlineCartCount() > 0"
-                            x-on:click="$store.confirmModal.open('Vider le panier ?', () => onlineCart = {})"
+                            x-on:click="$store.confirmModal.open('Vider le panier ?', () => clearOnlineCart())"
                             class="text-xs text-red-500 dark:text-red-400 underline"
                         >Vider</button>
                     </div>
 
-                    <template x-if="onlineCartCount() === 0">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
-                    </template>
+                    <p x-show="onlineCartCount() === 0" class="text-sm text-gray-500 dark:text-gray-400">Panier vide. Sélectionnez un produit.</p>
 
-                    <template x-if="onlineCartCount() > 0">
-                        <div class="flex flex-col min-h-0">
-                            <div class="max-h-56 overflow-y-auto space-y-3 mb-4 pr-1">
-                                <template x-for="item in onlineCartItems()" :key="item.product_id">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <div class="flex-1 min-w-0">
-                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                                <span class="mr-1" x-text="item.emoji || ''"></span><span class="break-words [overflow-wrap:anywhere]" x-text="item.product_name"></span>
-                                            </div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(item.unit_price)"></div>
+                    <div x-show="onlineCartCount() > 0" class="flex flex-col min-h-0">
+                        <div class="max-h-56 overflow-y-auto space-y-3 mb-4 pr-1">
+                            <template x-for="item in onlineCartItems()" :key="`online-cart-${item.product_id}`">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                            <span class="mr-1" x-text="item.emoji || ''"></span><span class="break-words [overflow-wrap:anywhere]" x-text="item.product_name"></span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                x-on:click="decrementOnline(item.product_id)"
-                                                class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                            >−</button>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="999"
-                                                x-bind:value="item.quantity"
-                                                x-on:change="setOnlineQuantity(item.product_id, $event.target.value)"
-                                                class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
-                                            >
-                                            <button
-                                                type="button"
-                                                x-on:click="incrementOnline(item.product_id)"
-                                                class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                            >+</button>
-                                        </div>
-                                        <button type="button" x-on:click="removeOnlineProduct(item.product_id)" class="text-red-500 text-xs">✕</button>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="formatMoney(item.unit_price)"></div>
                                     </div>
-                                </template>
-                            </div>
-
-                            <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
-                                <span>Total</span>
-                                <span x-text="formatMoney(onlineCartTotal())"></span>
-                            </div>
-
-                            <button type="button" x-on:click="openOnlineCheckout()" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
-                                Encaisser
-                            </button>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            x-on:click="decrementOnline(item.product_id)"
+                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        >−</button>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="999"
+                                            x-bind:value="item.quantity"
+                                            x-on:change="setOnlineQuantity(item.product_id, $event.target.value)"
+                                            class="w-12 text-center text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md py-1"
+                                        >
+                                        <button
+                                            type="button"
+                                            x-on:click="incrementOnline(item.product_id)"
+                                            class="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        >+</button>
+                                    </div>
+                                    <button type="button" x-on:click="removeOnlineProduct(item.product_id)" class="text-red-500 text-xs">✕</button>
+                                </div>
+                            </template>
                         </div>
-                    </template>
+
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                            <span>Total</span>
+                            <span x-text="formatMoney(onlineCartTotal())"></span>
+                        </div>
+
+                        <button type="button" x-on:click="openOnlineCheckout()" class="mt-4 w-full bg-brand-600 text-white rounded-md py-2 font-medium">
+                            Encaisser
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Recent sales -->
@@ -795,7 +791,7 @@
                     this.onlineServiceArea = serviceArea;
                     this.onlineActiveCategoryId = this.onlineCategories()[0]?.id ?? null;
                     this.onlineSearch = '';
-                    this.onlineCart = {};
+                    this.clearOnlineCart();
                     this.closeOnlineCheckout();
                 },
 
@@ -826,50 +822,94 @@
 
                     if (!normalized) return;
 
+                    const current = this.onlineCart[normalized.id];
+
                     if (this.onlineCart[normalized.id]) {
-                        this.onlineCart[normalized.id].quantity++;
+                        this.onlineCart = {
+                            ...this.onlineCart,
+                            [normalized.id]: {
+                                ...current,
+                                quantity: Number(current.quantity || 0) + 1,
+                            },
+                        };
                     } else {
-                        this.onlineCart[normalized.id] = {
-                            product_id: normalized.id,
-                            product_name: normalized.name,
-                            emoji: normalized.emoji,
-                            unit_price: normalized.price,
-                            quantity: 1,
+                        this.onlineCart = {
+                            ...this.onlineCart,
+                            [normalized.id]: {
+                                product_id: normalized.id,
+                                product_name: normalized.name,
+                                emoji: normalized.emoji,
+                                unit_price: normalized.price,
+                                quantity: 1,
+                            },
                         };
                     }
                 },
 
                 incrementOnline(productId) {
-                    if (this.onlineCart[productId]) {
-                        this.onlineCart[productId].quantity++;
-                    }
+                    const item = this.onlineCart[productId];
+
+                    if (!item) return;
+
+                    this.onlineCart = {
+                        ...this.onlineCart,
+                        [productId]: {
+                            ...item,
+                            quantity: Number(item.quantity || 0) + 1,
+                        },
+                    };
                 },
 
                 decrementOnline(productId) {
-                    if (!this.onlineCart[productId]) return;
+                    const item = this.onlineCart[productId];
 
-                    this.onlineCart[productId].quantity--;
+                    if (!item) return;
 
-                    if (this.onlineCart[productId].quantity <= 0) {
-                        delete this.onlineCart[productId];
+                    const nextQuantity = Number(item.quantity || 0) - 1;
+
+                    if (nextQuantity <= 0) {
+                        this.removeOnlineProduct(productId);
+                        return;
                     }
+
+                    this.onlineCart = {
+                        ...this.onlineCart,
+                        [productId]: {
+                            ...item,
+                            quantity: nextQuantity,
+                        },
+                    };
                 },
 
                 removeOnlineProduct(productId) {
-                    delete this.onlineCart[productId];
+                    const nextCart = { ...this.onlineCart };
+                    delete nextCart[productId];
+                    this.onlineCart = nextCart;
                 },
 
                 setOnlineQuantity(productId, quantity) {
-                    if (!this.onlineCart[productId]) return;
+                    const item = this.onlineCart[productId];
+
+                    if (!item) return;
 
                     const nextQuantity = Math.min(Math.max(Number.parseInt(quantity || 0, 10), 0), 999);
 
                     if (nextQuantity < 1) {
-                        delete this.onlineCart[productId];
+                        this.removeOnlineProduct(productId);
                         return;
                     }
 
-                    this.onlineCart[productId].quantity = nextQuantity;
+                    this.onlineCart = {
+                        ...this.onlineCart,
+                        [productId]: {
+                            ...item,
+                            quantity: nextQuantity,
+                        },
+                    };
+                },
+
+                clearOnlineCart() {
+                    this.onlineCart = {};
                 },
 
                 onlineCartItems() {
@@ -947,7 +987,7 @@
                             this.onlineServiceArea,
                         );
 
-                        this.onlineCart = {};
+                        this.clearOnlineCart();
                         this.onlineCheckoutOpen = false;
                         this.onlineCheckoutMethod = null;
                         this.onlineAmountGiven = '';

@@ -260,6 +260,18 @@ class Overview extends Component
     }
 
     #[Computed]
+    public function orderHistory()
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->effectiveSalesQuery($start, $end)
+            ->with(['items' => fn ($query) => $query->orderBy('id'), 'user'])
+            ->latest()
+            ->limit(20)
+            ->get();
+    }
+
+    #[Computed]
     public function hourlySales(): array
     {
         $sales = $this->effectiveSalesQuery()
