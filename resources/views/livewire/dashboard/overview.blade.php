@@ -242,6 +242,11 @@
                                 <div class="text-right shrink-0">
                                     <div class="font-semibold text-gray-900 dark:text-gray-100">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</div>
                                     <div class="text-xs text-gray-500 dark:text-gray-400">{{ $sale->items->sum('quantity') }} article(s)</div>
+                                    <button
+                                        type="button"
+                                        wire:click="viewOrderTicket({{ $sale->id }})"
+                                        class="mt-2 inline-flex items-center rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                                    >Voir</button>
                                 </div>
                             </div>
 
@@ -295,4 +300,64 @@
             @endif
         </div>
     </div>
+
+    @if ($this->selectedOrderTicket)
+        <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" wire:click.self="closeOrderTicket">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <div>
+                        <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100">Ticket détaillé</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ $this->selectedOrderTicket->receipt_number ?? '#'.$this->selectedOrderTicket->id }}</p>
+                    </div>
+                    <button type="button" wire:click="closeOrderTicket" class="text-sm text-gray-500 dark:text-gray-400 underline">Fermer</button>
+                </div>
+
+                <div class="p-6">
+                    <div class="font-mono">
+                        <div class="text-center mb-4">
+                            <h4 class="font-bold text-lg text-gray-900 dark:text-gray-100">McBerto</h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Ticket {{ $this->selectedOrderTicket->receipt_number ?? '#'.$this->selectedOrderTicket->id }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Zone : {{ $this->selectedOrderTicket->service_area->label() }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $this->selectedOrderTicket->created_at->format('d/m/Y H:i') }} - {{ $this->selectedOrderTicket->user?->name ?? 'Utilisateur supprimé' }}</p>
+                        </div>
+
+                        <div class="divide-y divide-gray-200 dark:divide-gray-700 border-y border-gray-200 dark:border-gray-700 mb-4">
+                            @foreach ($this->selectedOrderTicket->items as $item)
+                                <div class="py-2 text-sm">
+                                    <div class="flex justify-between gap-3">
+                                        <span class="min-w-0 text-gray-700 dark:text-gray-300 break-words [overflow-wrap:anywhere]">{{ $item->quantity }} x {{ $item->product_name }}</span>
+                                        <span class="text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ number_format($item->subtotal, 0, ',', ' ') }} FCFA</span>
+                                    </div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item->unit_price, 0, ',', ' ') }} FCFA / unité</div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                                <span>Total</span>
+                                <span>{{ number_format($this->selectedOrderTicket->total_amount, 0, ',', ' ') }} FCFA</span>
+                            </div>
+                            <div class="flex justify-between text-gray-500 dark:text-gray-400">
+                                <span>Paiement</span>
+                                <span>{{ $this->selectedOrderTicket->payment_method->label() }}</span>
+                            </div>
+                            @if ($this->selectedOrderTicket->amount_given !== null)
+                                <div class="flex justify-between text-gray-500 dark:text-gray-400">
+                                    <span>Montant donné</span>
+                                    <span>{{ number_format($this->selectedOrderTicket->amount_given, 0, ',', ' ') }} FCFA</span>
+                                </div>
+                                <div class="flex justify-between text-gray-500 dark:text-gray-400">
+                                    <span>Monnaie rendue</span>
+                                    <span>{{ number_format($this->selectedOrderTicket->change_due, 0, ',', ' ') }} FCFA</span>
+                                </div>
+                            @endif
+                        </div>
+
+                        <p class="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">Merci de votre visite !</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
