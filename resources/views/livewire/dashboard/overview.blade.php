@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Chiffre d'affaires</div>
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodRevenue, 0, ',', ' ') }} FCFA</div>
@@ -48,6 +48,11 @@
                     {{ number_format($this->periodNetProfit, 0, ',', ' ') }} FCFA
                 </div>
                 <x-dashboard.change-badge :percent="$this->periodNetProfitChangePercent" />
+            </div>
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400">Commandes annulées</div>
+                <div class="text-2xl font-semibold text-red-600 dark:text-red-400">{{ $this->periodCanceledOrdersCount }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ number_format($this->periodCanceledOrdersTotal, 0, ',', ' ') }} FCFA annulés</div>
             </div>
         </div>
 
@@ -211,6 +216,54 @@
                     </ol>
                 @endif
             </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                <div>
+                    <div class="font-medium text-gray-800 dark:text-gray-200">Commandes annulées</div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Annulations enregistrées sur la période affichée.</p>
+                </div>
+                <span class="text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-100">{{ $this->periodLabel }}</span>
+            </div>
+
+            @if ($this->recentCanceledOrders->isEmpty())
+                <p class="text-sm text-gray-500 dark:text-gray-400">Aucune commande annulée sur cette période.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                            <tr>
+                                <th class="px-4 py-3">Ticket</th>
+                                <th class="px-4 py-3">Annulée le</th>
+                                <th class="px-4 py-3">Caissier</th>
+                                <th class="px-4 py-3">Annulée par</th>
+                                <th class="px-4 py-3">Zone</th>
+                                <th class="px-4 py-3 text-right">Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            @foreach ($this->recentCanceledOrders as $sale)
+                                <tr wire:key="dashboard-canceled-order-{{ $sale->id }}">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                        {{ $sale->receipt_number ?? '#'.$sale->id }}
+                                        @if ($sale->cancellation_reason)
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $sale->cancellation_reason }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ $sale->canceled_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $sale->user?->name ?? 'Utilisateur supprimé' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $sale->canceledBy?->name ?? 'Système' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $sale->service_area->label() }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-semibold text-red-600 dark:text-red-400 text-right whitespace-nowrap">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
 
     </div>

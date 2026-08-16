@@ -151,6 +151,22 @@ class Overview extends Component
     }
 
     #[Computed]
+    public function periodCanceledOrdersCount(): int
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->canceledSalesQuery($start, $end)->count();
+    }
+
+    #[Computed]
+    public function periodCanceledOrdersTotal(): int
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return (int) $this->canceledSalesQuery($start, $end)->sum('total_amount');
+    }
+
+    #[Computed]
     public function previousPeriodRevenue(): int
     {
         [$start, $end] = $this->previousDashboardRange();
@@ -256,6 +272,18 @@ class Overview extends Component
             ->groupBy('sale_items.product_name')
             ->orderByDesc('total_quantity')
             ->limit(5)
+            ->get();
+    }
+
+    #[Computed]
+    public function recentCanceledOrders()
+    {
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->canceledSalesQuery($start, $end)
+            ->with(['user', 'canceledBy'])
+            ->latest('canceled_at')
+            ->limit(8)
             ->get();
     }
 
@@ -409,6 +437,13 @@ class Overview extends Component
         }
 
         return $query;
+    }
+
+    protected function canceledSalesQuery(Carbon $start, Carbon $end)
+    {
+        return Sale::query()
+            ->where('sale_status', SaleStatus::Canceled)
+            ->whereBetween('canceled_at', [$start, $end]);
     }
 
     protected function dailySeries(int $days): array

@@ -441,13 +441,41 @@ class PosTerminalTest extends TestCase
 
         Livewire::actingAs($cashier)
             ->test(Terminal::class)
-            ->call('cancelSale', $sale->id);
+            ->call('openCancelSale', $sale->id)
+            ->assertSet('salePendingCancellationId', $sale->id)
+            ->set('cancellationReason', 'Erreur de saisie caisse')
+            ->call('confirmCancelSale')
+            ->assertSet('salePendingCancellationId', null);
 
         $this->assertDatabaseHas('sales', [
             'id' => $sale->id,
             'sale_status' => SaleStatus::Canceled->value,
             'canceled_by' => $cashier->id,
-            'cancellation_reason' => 'Annulation depuis la caisse',
+            'cancellation_reason' => 'Erreur de saisie caisse',
+        ]);
+    }
+
+    public function test_sale_cannot_be_canceled_without_reason(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => Sale::nextReceiptNumber(),
+            'total_amount' => 2000,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('openCancelSale', $sale->id)
+            ->set('cancellationReason', '')
+            ->call('confirmCancelSale')
+            ->assertHasErrors(['cancellationReason' => 'required']);
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale->id,
+            'sale_status' => SaleStatus::Completed->value,
+            'canceled_by' => null,
+            'cancellation_reason' => null,
         ]);
     }
 
@@ -463,7 +491,7 @@ class PosTerminalTest extends TestCase
 
         Livewire::actingAs($cashier)
             ->test(Terminal::class)
-            ->call('cancelSale', $sale->id);
+            ->call('cancelSale', $sale->id, 'Tentative non autorisée');
 
         $this->assertDatabaseHas('sales', [
             'id' => $sale->id,
@@ -484,12 +512,13 @@ class PosTerminalTest extends TestCase
 
         Livewire::actingAs($manager)
             ->test(Terminal::class)
-            ->call('cancelSale', $sale->id);
+            ->call('cancelSale', $sale->id, 'Erreur client');
 
         $this->assertDatabaseHas('sales', [
             'id' => $sale->id,
             'sale_status' => SaleStatus::Canceled->value,
             'canceled_by' => $manager->id,
+            'cancellation_reason' => 'Erreur client',
         ]);
     }
 

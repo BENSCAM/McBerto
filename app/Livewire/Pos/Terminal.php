@@ -44,6 +44,10 @@ class Terminal extends Component
     /** @var array{id: int, receipt_number: string, items: array, total: int, payment_method: PaymentMethod, service_area: ServiceArea, created_at: Carbon, cashier: string, amount_given: ?int, change_due: ?int}|null */
     public ?array $lastSaleReceipt = null;
 
+    public ?int $salePendingCancellationId = null;
+
+    public string $cancellationReason = '';
+
     public function mount(): void
     {
         $this->activeCategoryId = $this->categories()->first()?->id;
@@ -258,10 +262,63 @@ class Terminal extends Component
             ->get();
     }
 
-    public function cancelSale(int $saleId): void
+    public function openCancelSale(int $saleId): void
     {
         if ($this->todayClosing) {
             return;
+        }
+
+        $sale = Sale::whereDate('created_at', now())->findOrFail($saleId);
+
+        if ($sale->sale_status === SaleStatus::Canceled || $sale->cash_register_closing_id !== null) {
+            return;
+        }
+
+        if (! Auth::user()->isAtLeastManager() && $sale->user_id !== Auth::id()) {
+            return;
+        }
+
+        $this->resetErrorBag('cancellationReason');
+        $this->salePendingCancellationId = $sale->id;
+        $this->cancellationReason = '';
+    }
+
+    public function closeCancelSale(): void
+    {
+        $this->salePendingCancellationId = null;
+        $this->cancellationReason = '';
+        $this->resetErrorBag('cancellationReason');
+    }
+
+    public function confirmCancelSale(): void
+    {
+        if (! $this->salePendingCancellationId) {
+            return;
+        }
+
+        $this->validate([
+            'cancellationReason' => ['required', 'string', 'min:3', 'max:255'],
+        ], [
+            'cancellationReason.required' => 'Le justificatif est obligatoire.',
+            'cancellationReason.min' => 'Le justificatif doit contenir au moins 3 caractères.',
+            'cancellationReason.max' => 'Le justificatif ne doit pas dépasser 255 caractères.',
+        ]);
+
+        $this->cancelSale($this->salePendingCancellationId, $this->cancellationReason);
+    }
+
+    public function cancelSale(int $saleId, string $reason): void
+    {
+        if ($this->todayClosing) {
+            return;
+        }
+
+        $reason = trim($reason);
+
+        if (mb_strlen($reason) < 3) {
+            throw ValidationException::withMessages([
+                'cancellationReason' => 'Le justificatif doit contenir au moins 3 caractères.',
+            ]);
         }
 
         $sale = Sale::whereDate('created_at', now())->findOrFail($saleId);
@@ -278,9 +335,11 @@ class Terminal extends Component
             'sale_status' => SaleStatus::Canceled,
             'canceled_by' => Auth::id(),
             'canceled_at' => now(),
-            'cancellation_reason' => 'Annulation depuis la caisse',
+            'cancellation_reason' => mb_strimwidth($reason, 0, 255),
         ]);
 
+        $this->salePendingCancellationId = null;
+        $this->cancellationReason = '';
         unset($this->recentSales);
     }
 

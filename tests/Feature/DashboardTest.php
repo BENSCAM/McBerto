@@ -149,6 +149,40 @@ class DashboardTest extends TestCase
             ->assertSet('periodNetProfit', 11000);
     }
 
+    public function test_dashboard_shows_canceled_orders_for_selected_period(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Annulation']);
+        $cancelingManager = User::factory()->manager()->create(['name' => 'Gérant Annulation']);
+
+        Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-20260816-0001',
+            'sale_status' => SaleStatus::Canceled,
+            'total_amount' => 4500,
+            'canceled_by' => $cancelingManager->id,
+            'canceled_at' => now(),
+            'cancellation_reason' => 'Erreur de saisie',
+        ]);
+
+        Sale::factory()->create([
+            'sale_status' => SaleStatus::Canceled,
+            'total_amount' => 99999,
+            'canceled_at' => now()->subMonth(),
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('periodCanceledOrdersCount', 1)
+            ->assertSet('periodCanceledOrdersTotal', 4500)
+            ->assertSee('Commandes annulées')
+            ->assertSee('MCB-20260816-0001')
+            ->assertSee('Caissier Annulation')
+            ->assertSee('Gérant Annulation')
+            ->assertSee('Erreur de saisie')
+            ->assertSee('4 500 FCFA');
+    }
+
     public function test_change_percent_compares_today_to_yesterday(): void
     {
         $manager = User::factory()->manager()->create();

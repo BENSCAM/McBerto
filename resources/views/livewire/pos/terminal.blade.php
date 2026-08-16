@@ -384,12 +384,17 @@
                                     <div class="mt-1 flex items-center justify-between gap-2">
                                         <span class="text-gray-900 dark:text-gray-100 font-medium {{ $sale->sale_status === \App\Enums\SaleStatus::Canceled ? 'line-through text-gray-400 dark:text-gray-500' : '' }}">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</span>
                                         @if ($sale->sale_status === \App\Enums\SaleStatus::Canceled)
-                                            <span class="text-xs text-red-600 dark:text-red-300">Annulée par {{ $sale->canceledBy?->name }}</span>
+                                            <span class="text-xs text-red-600 dark:text-red-300">
+                                                Annulée par {{ $sale->canceledBy?->name }}
+                                                @if ($sale->cancellation_reason)
+                                                    · {{ $sale->cancellation_reason }}
+                                                @endif
+                                            </span>
                                         @elseif (! $sale->cash_register_closing_id && (auth()->user()->isAtLeastManager() || $sale->user_id === auth()->id()))
                                             <button
-                                                x-on:click="$store.confirmModal.open('Annuler la vente {{ $sale->receipt_number ?? '#'.$sale->id }} ? Elle restera visible dans les historiques mais ne comptera plus dans les recettes.', () => $wire.cancelSale({{ $sale->id }}))"
+                                                wire:click="openCancelSale({{ $sale->id }})"
                                                 wire:loading.attr="disabled"
-                                                wire:target="cancelSale"
+                                                wire:target="openCancelSale"
                                                 class="text-xs text-red-600 dark:text-red-300 underline"
                                             >Annuler</button>
                                         @endif
@@ -411,6 +416,41 @@
             <span class="text-sm font-medium"><span x-text="onlineCartCount()"></span> article(s)</span>
             <span class="font-semibold"><span x-text="formatMoney(onlineCartTotal())"></span> · Voir le panier</span>
         </a>
+        @endif
+
+        @if ($salePendingCancellationId)
+            <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" wire:click.self="closeCancelSale">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+                    <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-2">Justificatif d'annulation</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Indiquez pourquoi cette commande doit être annulée. Ce justificatif sera visible par le gérant et le propriétaire.</p>
+
+                    <label for="cancellationReason" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Motif</label>
+                    <textarea
+                        wire:model="cancellationReason"
+                        id="cancellationReason"
+                        rows="4"
+                        maxlength="255"
+                        class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="Exemple : erreur de saisie, client parti, doublon..."
+                    ></textarea>
+                    <x-input-error :messages="$errors->get('cancellationReason')" class="mt-2" />
+
+                    <div class="flex gap-2 mt-5">
+                        <button
+                            type="button"
+                            wire:click="closeCancelSale"
+                            class="flex-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-md py-2"
+                        >Retour</button>
+                        <button
+                            type="button"
+                            wire:click="confirmCancelSale"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmCancelSale"
+                            class="flex-1 bg-red-600 text-white rounded-md py-2 font-medium disabled:opacity-50"
+                        >Confirmer l'annulation</button>
+                    </div>
+                </div>
+            </div>
         @endif
 
         <div x-show="onlineCheckoutOpen" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" x-on:click.self="closeOnlineCheckout()">
