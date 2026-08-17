@@ -96,6 +96,18 @@ class ActivityHistory extends Component
         return (string) $value;
     }
 
+    public function formatActivityAction(mixed $action): string
+    {
+        $action = $this->formatActivityValue($action);
+
+        return ['created' => 'Création', 'updated' => 'Modification', 'deleted' => 'Suppression'][$action] ?? ucfirst($action);
+    }
+
+    public function formatActivityField(mixed $field): string
+    {
+        return str_replace('_', ' ', $this->formatActivityValue($field));
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {

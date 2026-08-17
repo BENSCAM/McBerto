@@ -27,7 +27,7 @@
                 >
                     <option value="">Toutes les actions</option>
                     @foreach ($actions as $availableAction)
-                        <option value="{{ $availableAction }}">{{ __("activity.{$availableAction}") === "activity.{$availableAction}" ? ucfirst($availableAction) : __("activity.{$availableAction}") }}</option>
+                        <option value="{{ $this->formatActivityValue($availableAction) }}">{{ $this->formatActivityAction($availableAction) }}</option>
                     @endforeach
                 </select>
 
@@ -110,21 +110,21 @@
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                                     {{ $log->created_at->format('d/m/Y H:i') }}
                                     @if ($log->ip_address)
-                                        <div class="text-xs text-gray-400 dark:text-gray-500">{{ $log->ip_address }}</div>
+                                        <div class="text-xs text-gray-400 dark:text-gray-500">{{ $this->formatActivityValue($log->ip_address) }}</div>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                    {{ $log->user?->name ?? 'Système' }}
+                                    {{ $this->formatActivityValue($log->user?->name ?? 'Système') }}
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $log->action === 'created' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : ($log->action === 'deleted' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100') }}">
-                                        {{ ['created' => 'Création', 'updated' => 'Modification', 'deleted' => 'Suppression'][$log->action] ?? ucfirst($log->action) }}
+                                        {{ $this->formatActivityAction($log->action) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                                    {{ $log->description }}
+                                    {{ $this->formatActivityValue($log->description) }}
                                     @if ($log->subject_type)
-                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ class_basename($log->subject_type) }} #{{ $log->subject_id }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $this->formatActivityValue(class_basename($log->subject_type)) }} #{{ $this->formatActivityValue($log->subject_id) }}</div>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 min-w-72">
@@ -132,7 +132,7 @@
                                         <div class="space-y-1">
                                             @foreach ($log->new_values as $field => $value)
                                                 <div>
-                                                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ str_replace('_', ' ', $field) }}</span> :
+                                                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ $this->formatActivityField($field) }}</span> :
                                                     <span class="text-gray-500 dark:text-gray-400 break-words [overflow-wrap:anywhere]">{{ $this->formatActivityValue(data_get($log->old_values, $field)) }}</span>
                                                     <span class="text-gray-400">→</span>
                                                     <span class="break-words [overflow-wrap:anywhere]">{{ $this->formatActivityValue($value) }}</span>
@@ -142,7 +142,7 @@
                                     @elseif ($log->new_values)
                                         <div class="text-xs leading-relaxed">
                                             @foreach (array_slice($log->new_values, 0, 5) as $field => $value)
-                                                <span class="inline-block mr-2 break-words [overflow-wrap:anywhere]"><span class="font-medium">{{ str_replace('_', ' ', $field) }}</span>: {{ $this->formatActivityValue($value) }}</span>
+                                                <span class="inline-block mr-2 break-words [overflow-wrap:anywhere]"><span class="font-medium">{{ $this->formatActivityField($field) }}</span>: {{ $this->formatActivityValue($value) }}</span>
                                             @endforeach
                                         </div>
                                     @else
