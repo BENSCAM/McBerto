@@ -490,6 +490,10 @@
 
         <div x-show="onlineCheckoutOpen" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" x-on:click.self="closeOnlineCheckout()">
             <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+                <template x-if="onlineError">
+                    <div class="mb-4 rounded-md bg-red-50 dark:bg-red-900/40 px-3 py-2 text-sm text-red-700 dark:text-red-100" x-text="onlineError"></div>
+                </template>
+
                 <template x-if="onlineCheckoutMethod === 'cash'">
                     <div>
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">Paiement en espèces</h3>
@@ -549,7 +553,7 @@
                             >Retour</button>
                             <button
                                 type="button"
-                                x-on:click="$store.confirmModal.open(`Confirmer l'encaissement de ${formatMoney(onlineCartTotal())} en espèces ?`, () => confirmOnlineSale('cash'))"
+                                x-on:click="confirmOnlineSale('cash')"
                                 :disabled="onlineProcessing || onlineChangeDue() === null || onlineChangeDue() < 0"
                                 class="flex-1 bg-brand-600 text-white rounded-md py-2 font-medium disabled:opacity-50"
                             >
@@ -576,7 +580,7 @@
                                 @else
                                     <button
                                         type="button"
-                                        x-on:click="$store.confirmModal.open('Confirmer l\'encaissement en {{ $method->label() }} ?', () => confirmOnlineSale('{{ $method->value }}'))"
+                                        x-on:click="confirmOnlineSale('{{ $method->value }}')"
                                         :disabled="onlineProcessing"
                                         class="w-full border border-gray-200 dark:border-gray-700 rounded-md py-2 text-gray-800 dark:text-gray-200 hover:border-brand-500 disabled:opacity-50"
                                     >
@@ -784,6 +788,7 @@
                 onlineCheckoutMethod: null,
                 onlineAmountGiven: '',
                 onlineProcessing: false,
+                onlineError: '',
                 pendingSales: [],
                 failedSales: [],
                 syncedSales: [],
@@ -1008,6 +1013,7 @@
                     this.onlineCheckoutOpen = true;
                     this.onlineCheckoutMethod = null;
                     this.onlineAmountGiven = '';
+                    this.onlineError = '';
                 },
 
                 closeOnlineCheckout() {
@@ -1016,9 +1022,12 @@
                     this.onlineCheckoutOpen = false;
                     this.onlineCheckoutMethod = null;
                     this.onlineAmountGiven = '';
+                    this.onlineError = '';
                 },
 
                 selectOnlinePaymentMethod(paymentMethod) {
+                    this.onlineError = '';
+
                     if (paymentMethod === 'cash') {
                         this.onlineCheckoutMethod = 'cash';
                         this.onlineAmountGiven = '';
@@ -1030,6 +1039,7 @@
 
                     this.onlineCheckoutMethod = null;
                     this.onlineAmountGiven = '';
+                    this.onlineError = '';
                 },
 
                 onlineChangeDue() {
@@ -1043,6 +1053,7 @@
                 async confirmOnlineSale(paymentMethod) {
                     if (this.onlineProcessing || this.onlineCartCount() === 0) return;
 
+                    this.onlineError = '';
                     const total = this.onlineCartTotal();
                     const amountGiven = paymentMethod === 'cash' ? Number(this.onlineAmountGiven || 0) : null;
                     const changeDue = paymentMethod === 'cash' ? amountGiven - total : null;
@@ -1068,9 +1079,25 @@
                         this.onlineCheckoutOpen = false;
                         this.onlineCheckoutMethod = null;
                         this.onlineAmountGiven = '';
+                        this.onlineError = '';
+                    } catch (error) {
+                        this.onlineError = this.livewireErrorMessage(error) || 'Impossible d’enregistrer cette vente. Vérifiez la date, le montant et réessayez.';
                     } finally {
                         this.onlineProcessing = false;
                     }
+                },
+
+                livewireErrorMessage(error) {
+                    const errors = error?.response?.effects?.errors || error?.response?.serverMemo?.errors || error?.errors;
+
+                    if (errors && typeof errors === 'object') {
+                        const first = Object.values(errors)[0];
+
+                        if (Array.isArray(first)) return first[0];
+                        if (typeof first === 'string') return first;
+                    }
+
+                    return error?.message || '';
                 },
 
                 incrementOffline(productId) {

@@ -23,7 +23,7 @@ new class extends Component
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ auth()->user()->isAtLeastManager() ? route('dashboard') : route('pos.terminal') }}" wire:navigate>
+                    <a href="{{ auth()->user()->isAtLeastManager() ? route('dashboard') : route('pos.terminal') }}">
                         <x-application-logo class="block h-9 w-auto rounded" />
                     </a>
                 </div>
@@ -31,40 +31,40 @@ new class extends Component
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     @if (auth()->user()->isAtLeastManager())
-                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>
+                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                             {{ __('Dashboard') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.index')" wire:navigate>
+                        <x-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.index')">
                             {{ __('Catégories') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')" wire:navigate>
+                        <x-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')">
                             {{ __('Produits') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')" wire:navigate>
+                        <x-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')">
                             {{ __('Dépenses') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')" wire:navigate>
+                        <x-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')">
                             {{ __('Historique') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('system.bugs')" :active="request()->routeIs('system.bugs')" wire:navigate>
+                        <x-nav-link :href="route('system.bugs')" :active="request()->routeIs('system.bugs')">
                             {{ __('Bugs') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.index')" wire:navigate>
+                        <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.index')">
                             {{ __('Utilisateurs') }}
                         </x-nav-link>
                     @endif
                     @if (auth()->user()->isOwner())
-                        <x-nav-link :href="route('system.reset')" :active="request()->routeIs('system.reset')" wire:navigate>
+                        <x-nav-link :href="route('system.reset')" :active="request()->routeIs('system.reset')">
                             {{ __('Reset') }}
                         </x-nav-link>
                     @endif
-                    <x-nav-link :href="route('pos.terminal')" :active="request()->routeIs('pos.terminal')" wire:navigate>
+                    <x-nav-link :href="route('pos.terminal')" :active="request()->routeIs('pos.terminal')">
                         {{ __('Caisse') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('pos.closing')" :active="request()->routeIs('pos.closing')" wire:navigate>
+                    <x-nav-link :href="route('pos.closing')" :active="request()->routeIs('pos.closing')">
                         {{ __('Clôture') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('reports.daily')" :active="request()->routeIs('reports.daily')" wire:navigate>
+                    <x-nav-link :href="route('reports.daily')" :active="request()->routeIs('reports.daily')">
                         {{ __('Rapport') }}
                     </x-nav-link>
                 </div>
@@ -116,40 +116,40 @@ new class extends Component
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             @if (auth()->user()->isAtLeastManager())
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                     {{ __('Dashboard') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.index')" wire:navigate>
+                <x-responsive-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.index')">
                     {{ __('Catégories') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')" wire:navigate>
+                <x-responsive-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')">
                     {{ __('Produits') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')" wire:navigate>
+                <x-responsive-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')">
                     {{ __('Dépenses') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')" wire:navigate>
+                <x-responsive-nav-link :href="route('system.history')" :active="request()->routeIs('system.history')">
                     {{ __('Historique') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('system.bugs')" :active="request()->routeIs('system.bugs')" wire:navigate>
+                <x-responsive-nav-link :href="route('system.bugs')" :active="request()->routeIs('system.bugs')">
                     {{ __('Bugs') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.index')" wire:navigate>
+                <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.index')">
                     {{ __('Utilisateurs') }}
                 </x-responsive-nav-link>
             @endif
             @if (auth()->user()->isOwner())
-                <x-responsive-nav-link :href="route('system.reset')" :active="request()->routeIs('system.reset')" wire:navigate>
+                <x-responsive-nav-link :href="route('system.reset')" :active="request()->routeIs('system.reset')">
                     {{ __('Reset') }}
                 </x-responsive-nav-link>
             @endif
-            <x-responsive-nav-link :href="route('pos.terminal')" :active="request()->routeIs('pos.terminal')" wire:navigate>
+            <x-responsive-nav-link :href="route('pos.terminal')" :active="request()->routeIs('pos.terminal')">
                 {{ __('Caisse') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('pos.closing')" :active="request()->routeIs('pos.closing')" wire:navigate>
+            <x-responsive-nav-link :href="route('pos.closing')" :active="request()->routeIs('pos.closing')">
                 {{ __('Clôture') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('reports.daily')" :active="request()->routeIs('reports.daily')" wire:navigate>
+            <x-responsive-nav-link :href="route('reports.daily')" :active="request()->routeIs('reports.daily')">
                 {{ __('Rapport') }}
             </x-responsive-nav-link>
         </div>
