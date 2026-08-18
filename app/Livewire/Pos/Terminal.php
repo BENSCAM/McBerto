@@ -25,6 +25,8 @@ class Terminal extends Component
 
     public string $activeServiceArea = 'standard';
 
+    public string $saleDate = '';
+
     public string $search = '';
 
     /** @var array<int, array{name: string, emoji: ?string, price: int, quantity: int}> */
@@ -51,6 +53,14 @@ class Terminal extends Component
     public function mount(): void
     {
         $this->activeCategoryId = $this->categories()->first()?->id;
+        $this->saleDate = $this->defaultSaleDate();
+    }
+
+    public function updatedSaleDate(): void
+    {
+        if (! Auth::user()->isAtLeastManager()) {
+            $this->saleDate = $this->defaultSaleDate();
+        }
     }
 
     #[Computed]
@@ -92,6 +102,13 @@ class Terminal extends Component
     public function serviceAreaOptions(): array
     {
         return ServiceArea::cases();
+    }
+
+    public function cashierHasBackdatedSalePermission(): bool
+    {
+        return Auth::user()->isCashier()
+            && Auth::user()->can_backdate_sales
+            && Auth::user()->backdate_sales_date !== null;
     }
 
     public function offlineCatalog(): array
@@ -409,17 +426,18 @@ class Terminal extends Component
 
     public function completeSale(string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null): void
     {
-        if (empty($this->cart) || $this->todayClosing) {
+        if (empty($this->cart)) {
             return;
         }
 
+        $createdAt = $this->validatedSaleCreatedAt($this->saleDate);
         $method = PaymentMethod::from($paymentMethod);
         $serviceArea = ServiceArea::from($this->activeServiceArea);
         $total = $this->cartTotal();
 
-        $sale = DB::transaction(function () use ($method, $serviceArea, $total, $amountGiven, $changeDue) {
-            $sale = Sale::create([
-                'receipt_number' => Sale::nextReceiptNumber(),
+        $sale = DB::transaction(function () use ($method, $serviceArea, $total, $amountGiven, $changeDue, $createdAt) {
+            $sale = new Sale([
+                'receipt_number' => Sale::nextReceiptNumber($createdAt),
                 'user_id' => Auth::id(),
                 'payment_method' => $method,
                 'service_area' => $serviceArea,
@@ -428,6 +446,8 @@ class Terminal extends Component
                 'amount_given' => $amountGiven,
                 'change_due' => $changeDue,
             ]);
+            $sale->created_at = $createdAt;
+            $sale->save();
 
             foreach ($this->cart as $productId => $item) {
                 SaleItem::create([
@@ -450,7 +470,7 @@ class Terminal extends Component
             'total' => $total,
             'payment_method' => $method,
             'service_area' => $serviceArea,
-            'created_at' => now(),
+            'created_at' => $createdAt,
             'cashier' => Auth::user()->name,
             'amount_given' => $amountGiven,
             'change_due' => $changeDue,
@@ -462,12 +482,9 @@ class Terminal extends Component
         unset($this->recentSales);
     }
 
-    public function completeClientSale(array $items, string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null, ?string $serviceArea = null): void
+    public function completeClientSale(array $items, string $paymentMethod, ?int $amountGiven = null, ?int $changeDue = null, ?string $serviceArea = null, ?string $saleDate = null): void
     {
-        if ($this->todayClosing) {
-            return;
-        }
-
+        $createdAt = $this->validatedSaleCreatedAt($saleDate);
         $serviceArea = ServiceArea::from($serviceArea ?? $this->activeServiceArea);
         $cart = $this->validatedClientCart($items, $serviceArea);
 
@@ -494,9 +511,9 @@ class Terminal extends Component
             $changeDue = null;
         }
 
-        $sale = DB::transaction(function () use ($cart, $method, $serviceArea, $total, $amountGiven, $changeDue) {
-            $sale = Sale::create([
-                'receipt_number' => Sale::nextReceiptNumber(),
+        $sale = DB::transaction(function () use ($cart, $method, $serviceArea, $total, $amountGiven, $changeDue, $createdAt) {
+            $sale = new Sale([
+                'receipt_number' => Sale::nextReceiptNumber($createdAt),
                 'user_id' => Auth::id(),
                 'payment_method' => $method,
                 'service_area' => $serviceArea,
@@ -505,6 +522,8 @@ class Terminal extends Component
                 'amount_given' => $amountGiven,
                 'change_due' => $changeDue,
             ]);
+            $sale->created_at = $createdAt;
+            $sale->save();
 
             foreach ($cart as $productId => $item) {
                 SaleItem::create([
@@ -527,7 +546,7 @@ class Terminal extends Component
             'total' => $total,
             'payment_method' => $method,
             'service_area' => $serviceArea,
-            'created_at' => now(),
+            'created_at' => $createdAt,
             'cashier' => Auth::user()->name,
             'amount_given' => $amountGiven,
             'change_due' => $changeDue,
@@ -536,6 +555,60 @@ class Terminal extends Component
         $this->checkoutMethod = null;
         $this->amountGiven = '';
         unset($this->recentSales);
+    }
+
+    protected function validatedSaleCreatedAt(?string $saleDate = null): Carbon
+    {
+        $dateInput = trim((string) ($saleDate ?: $this->saleDate ?: now()->toDateString()));
+
+        try {
+            $date = Carbon::createFromFormat('Y-m-d', $dateInput)->startOfDay();
+        } catch (\Throwable) {
+            throw ValidationException::withMessages([
+                'saleDate' => 'La date de vente est invalide.',
+            ]);
+        }
+
+        if ($date->format('Y-m-d') !== $dateInput) {
+            throw ValidationException::withMessages([
+                'saleDate' => 'La date de vente est invalide.',
+            ]);
+        }
+
+        $today = now()->startOfDay();
+
+        if ($date->gt($today)) {
+            throw ValidationException::withMessages([
+                'saleDate' => 'Impossible d’enregistrer une commande dans le futur.',
+            ]);
+        }
+
+        if (! Auth::user()->isAtLeastManager() && ! $date->isSameDay($today) && ! Auth::user()->canRecordSalesForDate($date)) {
+            throw ValidationException::withMessages([
+                'saleDate' => 'Seul le gérant ou le propriétaire peut enregistrer une commande passée.',
+            ]);
+        }
+
+        if (CashRegisterClosing::whereDate('closing_date', $date)->exists()) {
+            throw ValidationException::withMessages([
+                'saleDate' => 'Impossible d’enregistrer une commande sur une journée déjà clôturée.',
+            ]);
+        }
+
+        $now = now();
+
+        return $date->copy()->setTime($now->hour, $now->minute, $now->second);
+    }
+
+    protected function defaultSaleDate(): string
+    {
+        $user = Auth::user();
+
+        if ($user->isCashier() && $user->can_backdate_sales && $user->backdate_sales_date) {
+            return $user->backdate_sales_date->toDateString();
+        }
+
+        return now()->toDateString();
     }
 
     protected function validatedClientCart(array $items, ServiceArea $serviceArea): array

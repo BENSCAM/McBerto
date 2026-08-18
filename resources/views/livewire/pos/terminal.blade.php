@@ -1,6 +1,6 @@
 <div
     class="py-6"
-    x-data="offlinePos(@js($this->offlineCatalog()), '{{ route('pos.offline-sales.sync') }}')"
+    x-data="offlinePos(@js($this->offlineCatalog()), '{{ route('pos.offline-sales.sync') }}', @js($saleDate))"
     x-init="init()"
 >
     <div wire:loading.class="opacity-100" class="fixed top-0 left-0 right-0 h-1 bg-brand-600 z-50 opacity-0 transition-opacity duration-150"></div>
@@ -18,6 +18,25 @@
 
             @unless ($this->todayClosing)
                 <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto" x-show="!offline">
+                    @if (auth()->user()->isAtLeastManager())
+                        <div class="flex items-center gap-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
+                            <label for="saleDate" class="text-sm font-medium text-gray-600 dark:text-gray-300">Date</label>
+                            <input
+                                id="saleDate"
+                                type="date"
+                                x-model="onlineSaleDate"
+                                x-on:change="$wire.set('saleDate', onlineSaleDate)"
+                                max="{{ now()->toDateString() }}"
+                                class="w-36 border-0 p-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 focus:ring-0"
+                            >
+                        </div>
+                        <x-input-error :messages="$errors->get('saleDate')" class="w-full sm:w-auto" />
+                    @elseif ($this->cashierHasBackdatedSalePermission())
+                        <div class="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                            Date autorisée : {{ auth()->user()->backdate_sales_date->format('d/m/Y') }}
+                        </div>
+                    @endif
+
                     <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
                         <template x-for="area in catalog.serviceAreas" :key="`online-area-${area.value}`">
                             <button
@@ -75,6 +94,22 @@
                         <h3 class="font-semibold text-amber-900 dark:text-amber-100">Mode hors connexion</h3>
                         <p class="text-sm text-amber-800 dark:text-amber-100 mt-1">Les ventes sont gardées sur cet appareil et seront synchronisées dès que la connexion revient.</p>
                     </div>
+                    @if (auth()->user()->isAtLeastManager())
+                        <div class="flex items-center gap-2 rounded-md border border-amber-200 dark:border-amber-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2">
+                            <label for="offlineSaleDate" class="text-sm font-medium text-amber-900 dark:text-amber-100">Date</label>
+                            <input
+                                id="offlineSaleDate"
+                                type="date"
+                                x-model="onlineSaleDate"
+                                max="{{ now()->toDateString() }}"
+                                class="w-36 border-0 p-0 text-sm bg-transparent text-gray-900 dark:text-gray-100 focus:ring-0"
+                            >
+                        </div>
+                    @elseif ($this->cashierHasBackdatedSalePermission())
+                        <div class="rounded-md border border-amber-200 dark:border-amber-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                            Date autorisée : {{ auth()->user()->backdate_sales_date->format('d/m/Y') }}
+                        </div>
+                    @endif
                     <button
                         type="button"
                         x-show="online && pendingSales.length > 0"
@@ -721,7 +756,7 @@
     </div>
 
     <script>
-        function offlinePos(catalog, syncUrl) {
+        function offlinePos(catalog, syncUrl, initialSaleDate) {
             return {
                 catalog,
                 syncUrl,
@@ -741,6 +776,7 @@
                 offlinePaymentMethod: 'cash',
                 offlineAmountGiven: 0,
                 onlineServiceArea: 'standard',
+                onlineSaleDate: initialSaleDate,
                 onlineActiveCategoryId: null,
                 onlineSearch: '',
                 onlineCart: {},
@@ -1025,6 +1061,7 @@
                             amountGiven,
                             changeDue,
                             this.onlineServiceArea,
+                            this.onlineSaleDate,
                         );
 
                         this.clearOnlineCart();
@@ -1078,6 +1115,18 @@
                     return Number(this.offlineAmountGiven || 0) - this.offlineCartTotal();
                 },
 
+                selectedSaleCreatedAt() {
+                    const selectedDate = this.onlineSaleDate || new Date().toISOString().slice(0, 10);
+                    const [year, month, day] = selectedDate.split('-').map(value => Number.parseInt(value, 10));
+                    const now = new Date();
+
+                    if (!year || !month || !day) {
+                        return now.toISOString();
+                    }
+
+                    return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+                },
+
                 queueOfflineSale() {
                     if (this.offlineCartCount() === 0) return;
                     if (this.offlinePaymentMethod === 'cash' && this.offlineChangeDue() < 0) return;
@@ -1088,7 +1137,7 @@
                         offline_uuid: this.uuid(),
                         offline_reference: this.nextOfflineReference(),
                         status: 'pending',
-                        created_at: new Date().toISOString(),
+                        created_at: this.selectedSaleCreatedAt(),
                         payment_method: this.offlinePaymentMethod,
                         service_area: this.serviceArea,
                         total_amount: total,

@@ -77,4 +77,26 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($cashier)->get('/pos')->assertRedirect('/');
     }
+
+    public function test_owner_can_authorize_and_revoke_cashier_backdated_sales_for_a_precise_date(): void
+    {
+        $owner = User::factory()->owner()->create();
+        $cashier = User::factory()->cashier()->create();
+        $saleDate = now()->subDay()->toDateString();
+
+        Livewire::actingAs($owner)
+            ->test(UserManagement::class)
+            ->set("backdateSaleDates.{$cashier->id}", $saleDate)
+            ->call('authorizeBackdatedSales', $cashier->id);
+
+        $this->assertTrue($cashier->refresh()->can_backdate_sales);
+        $this->assertSame($saleDate, $cashier->backdate_sales_date->toDateString());
+
+        Livewire::actingAs($owner)
+            ->test(UserManagement::class)
+            ->call('revokeBackdatedSales', $cashier->id);
+
+        $this->assertFalse($cashier->refresh()->can_backdate_sales);
+        $this->assertNull($cashier->backdate_sales_date);
+    }
 }

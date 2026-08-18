@@ -93,6 +93,107 @@ class PosTerminalTest extends TestCase
         ]);
     }
 
+    public function test_manager_can_record_a_client_side_sale_for_yesterday(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2500]);
+        $yesterday = now()->subDay()->toDateString();
+
+        Livewire::actingAs($manager)
+            ->test(Terminal::class)
+            ->set('saleDate', $yesterday)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ], 'cash', 5000, 0, 'standard', $yesterday)
+            ->assertSet('lastSaleReceipt.total', 5000)
+            ->assertSet('lastSaleReceipt.receipt_number', 'MCB-'.now()->subDay()->format('Ymd').'-0001');
+
+        $sale = Sale::first();
+
+        $this->assertNotNull($sale);
+        $this->assertSame($yesterday, $sale->created_at->toDateString());
+        $this->assertSame('MCB-'.now()->subDay()->format('Ymd').'-0001', $sale->receipt_number);
+    }
+
+    public function test_cashier_cannot_record_a_sale_for_yesterday(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2500]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ], 'cash', 2500, 0, 'standard', now()->subDay()->toDateString())
+            ->assertHasErrors(['saleDate']);
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_authorized_cashier_can_record_a_sale_for_the_precise_allowed_date(): void
+    {
+        $saleDate = now()->subDay()->toDateString();
+        $cashier = User::factory()->cashier()->create([
+            'can_backdate_sales' => true,
+            'backdate_sales_date' => $saleDate,
+        ]);
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2500]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->assertSet('saleDate', $saleDate)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ], 'cash', 2500, 0, 'standard', $saleDate)
+            ->assertSet('lastSaleReceipt.receipt_number', 'MCB-'.now()->subDay()->format('Ymd').'-0001');
+
+        $sale = Sale::first();
+
+        $this->assertNotNull($sale);
+        $this->assertSame($saleDate, $sale->created_at->toDateString());
+    }
+
+    public function test_authorized_cashier_cannot_record_a_sale_for_another_past_date(): void
+    {
+        $cashier = User::factory()->cashier()->create([
+            'can_backdate_sales' => true,
+            'backdate_sales_date' => now()->subDay()->toDateString(),
+        ]);
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2500]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ], 'cash', 2500, 0, 'standard', now()->subDays(2)->toDateString())
+            ->assertHasErrors(['saleDate']);
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_manager_cannot_record_a_sale_for_a_closed_day(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 2500]);
+        $yesterday = now()->subDay()->toDateString();
+
+        CashRegisterClosing::factory()->create(['closing_date' => $yesterday]);
+
+        Livewire::actingAs($manager)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ], 'cash', 2500, 0, 'standard', $yesterday)
+            ->assertHasErrors(['saleDate']);
+
+        $this->assertDatabaseCount('sales', 0);
+    }
+
     public function test_cashier_can_complete_a_client_side_vip_cart_sale(): void
     {
         $cashier = User::factory()->cashier()->create();
@@ -547,7 +648,9 @@ class PosTerminalTest extends TestCase
 
         CashRegisterClosing::factory()->create(['closing_date' => now()->format('Y-m-d')]);
 
-        $component->call('completeSale', 'cash');
+        $component
+            ->call('completeSale', 'cash')
+            ->assertHasErrors(['saleDate']);
 
         $this->assertDatabaseCount('sales', 0);
     }

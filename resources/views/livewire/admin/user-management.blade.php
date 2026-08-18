@@ -62,6 +62,7 @@
                         <th class="px-6 py-3">Email</th>
                         <th class="px-6 py-3">Rôle</th>
                         <th class="px-6 py-3">Statut</th>
+                        <th class="px-6 py-3">Date autorisée</th>
                         <th class="px-6 py-3"></th>
                     </tr>
                 </thead>
@@ -76,6 +77,47 @@
                                     {{ $user->is_active ? 'Actif' : 'Désactivé' }}
                                 </span>
                             </td>
+                            <td class="px-6 py-3">
+                                @if ($user->isCashier())
+                                    <div class="space-y-2 min-w-56">
+                                        @if ($user->can_backdate_sales && $user->backdate_sales_date)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                                                {{ $user->backdate_sales_date->format('d/m/Y') }}
+                                            </span>
+                                        @else
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">Aucune</span>
+                                        @endif
+
+                                        <div class="flex flex-wrap items-start gap-2">
+                                            <div>
+                                                <input
+                                                    type="date"
+                                                    wire:model="backdateSaleDates.{{ $user->id }}"
+                                                    max="{{ now()->toDateString() }}"
+                                                    class="w-36 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-xs focus:border-brand-500 focus:ring-brand-500"
+                                                >
+                                                <x-input-error :messages="$errors->get('backdateSaleDates.'.$user->id)" class="mt-1" />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                wire:click="authorizeBackdatedSales({{ $user->id }})"
+                                                wire:loading.attr="disabled"
+                                                wire:target="authorizeBackdatedSales({{ $user->id }})"
+                                                class="inline-flex items-center rounded-md border border-amber-200 dark:border-amber-800 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                                            >Autoriser</button>
+                                            @if ($user->can_backdate_sales)
+                                                <button
+                                                    type="button"
+                                                    x-on:click="$store.confirmModal.open('Retirer cette autorisation de date ?', () => $wire.revokeBackdatedSales({{ $user->id }}))"
+                                                    class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                >Retirer</button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400 dark:text-gray-500">Non applicable</span>
+                                @endif
+                            </td>
                             <td class="px-6 py-3 text-right">
                                 <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">
                                     {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
@@ -84,7 +126,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-10 text-center">
+                            <td colspan="6" class="px-6 py-10 text-center">
                                 <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucun utilisateur enregistré</div>
                                 <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Créez un compte pour donner accès à l'application.</div>
                             </td>

@@ -27,6 +27,8 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'can_backdate_sales',
+        'backdate_sales_date',
     ];
 
     /**
@@ -51,6 +53,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'can_backdate_sales' => 'boolean',
+            'backdate_sales_date' => 'date',
         ];
     }
 
@@ -72,6 +76,13 @@ class User extends Authenticatable
     public function isAtLeastManager(): bool
     {
         return in_array($this->role, [UserRole::Manager, UserRole::Owner], true);
+    }
+
+    public function canRecordSalesForDate(\DateTimeInterface $date): bool
+    {
+        return $this->can_backdate_sales
+            && $this->backdate_sales_date
+            && $this->backdate_sales_date->isSameDay($date);
     }
 
     public function sales(): HasMany

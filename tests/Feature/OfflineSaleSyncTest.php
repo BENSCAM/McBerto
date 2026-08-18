@@ -228,6 +228,108 @@ class OfflineSaleSyncTest extends TestCase
         ]);
     }
 
+    public function test_offline_sale_is_rejected_when_it_is_dated_in_the_future(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['price' => 1000]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-future-day',
+                'created_at' => now()->addDay()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 1000,
+                'amount_given' => 1000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 1000,
+                    'quantity' => 1,
+                    'subtotal' => 1000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('failed.0.offline_uuid', 'offline-sale-future-day');
+
+        $this->assertDatabaseMissing('sales', [
+            'offline_uuid' => 'offline-sale-future-day',
+        ]);
+    }
+
+    public function test_cashier_cannot_sync_a_backdated_offline_sale_without_permission(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['price' => 1000]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-backdate-refused',
+                'created_at' => now()->subDay()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 1000,
+                'amount_given' => 1000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 1000,
+                    'quantity' => 1,
+                    'subtotal' => 1000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('failed.0.offline_uuid', 'offline-sale-backdate-refused');
+
+        $this->assertDatabaseMissing('sales', [
+            'offline_uuid' => 'offline-sale-backdate-refused',
+        ]);
+    }
+
+    public function test_authorized_cashier_can_sync_a_backdated_offline_sale_for_allowed_date(): void
+    {
+        $saleDate = now()->subDay()->toDateString();
+        $cashier = User::factory()->cashier()->create([
+            'can_backdate_sales' => true,
+            'backdate_sales_date' => $saleDate,
+        ]);
+        $product = Product::factory()->create(['price' => 1000]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-backdate-allowed',
+                'created_at' => now()->subDay()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 1000,
+                'amount_given' => 1000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 1000,
+                    'quantity' => 1,
+                    'subtotal' => 1000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('synced.0.offline_uuid', 'offline-sale-backdate-allowed')
+            ->assertJsonPath('failed', []);
+
+        $sale = Sale::where('offline_uuid', 'offline-sale-backdate-allowed')->first();
+
+        $this->assertNotNull($sale);
+        $this->assertSame($saleDate, $sale->created_at->toDateString());
+    }
+
     public function test_offline_sale_is_rejected_when_total_is_incoherent(): void
     {
         $cashier = User::factory()->cashier()->create();

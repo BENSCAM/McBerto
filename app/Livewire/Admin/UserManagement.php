@@ -3,10 +3,12 @@
 namespace App\Livewire\Admin;
 
 use App\Enums\UserRole;
+use App\Models\CashRegisterClosing;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -29,6 +31,9 @@ class UserManagement extends Component
     public string $password = '';
 
     public ?string $error = null;
+
+    /** @var array<int, string> */
+    public array $backdateSaleDates = [];
 
     public function users()
     {
@@ -77,6 +82,64 @@ class UserManagement extends Component
         }
 
         $target->update(['is_active' => ! $target->is_active]);
+    }
+
+    public function authorizeBackdatedSales(int $userId): void
+    {
+        $this->error = null;
+        $target = User::findOrFail($userId);
+
+        if (! $target->isCashier()) {
+            $this->error = 'Cette autorisation est réservée aux comptes caissiers.';
+
+            return;
+        }
+
+        $dateInput = trim($this->backdateSaleDates[$userId] ?? '');
+
+        try {
+            $date = Carbon::createFromFormat('Y-m-d', $dateInput)->startOfDay();
+        } catch (\Throwable) {
+            throw ValidationException::withMessages([
+                "backdateSaleDates.{$userId}" => 'Choisissez une date valide.',
+            ]);
+        }
+
+        if ($date->format('Y-m-d') !== $dateInput) {
+            throw ValidationException::withMessages([
+                "backdateSaleDates.{$userId}" => 'Choisissez une date valide.',
+            ]);
+        }
+
+        if ($date->gt(now()->startOfDay())) {
+            throw ValidationException::withMessages([
+                "backdateSaleDates.{$userId}" => 'La date ne peut pas être dans le futur.',
+            ]);
+        }
+
+        if (CashRegisterClosing::whereDate('closing_date', $date)->exists()) {
+            throw ValidationException::withMessages([
+                "backdateSaleDates.{$userId}" => 'Cette journée est déjà clôturée.',
+            ]);
+        }
+
+        $target->update([
+            'can_backdate_sales' => true,
+            'backdate_sales_date' => $date,
+        ]);
+    }
+
+    public function revokeBackdatedSales(int $userId): void
+    {
+        $this->error = null;
+        $target = User::findOrFail($userId);
+
+        $target->update([
+            'can_backdate_sales' => false,
+            'backdate_sales_date' => null,
+        ]);
+
+        unset($this->backdateSaleDates[$userId]);
     }
 
     #[Layout('layouts.app')]

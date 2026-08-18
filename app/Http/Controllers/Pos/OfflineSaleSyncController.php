@@ -60,6 +60,28 @@ class OfflineSaleSyncController extends Controller
 
             $createdAt = Carbon::parse($payload['created_at'])->timezone(config('app.timezone'));
 
+            if ($createdAt->copy()->startOfDay()->gt(now()->startOfDay())) {
+                $failed[] = [
+                    'offline_uuid' => $payload['offline_uuid'],
+                    'message' => 'Impossible de synchroniser une vente datée dans le futur.',
+                ];
+
+                continue;
+            }
+
+            if (
+                ! Auth::user()->isAtLeastManager()
+                && ! $createdAt->isSameDay(now())
+                && ! Auth::user()->canRecordSalesForDate($createdAt)
+            ) {
+                $failed[] = [
+                    'offline_uuid' => $payload['offline_uuid'],
+                    'message' => 'Vous n’avez pas l’autorisation d’enregistrer une vente pour cette date.',
+                ];
+
+                continue;
+            }
+
             if (CashRegisterClosing::whereDate('closing_date', $createdAt)->exists()) {
                 $failed[] = [
                     'offline_uuid' => $payload['offline_uuid'],
