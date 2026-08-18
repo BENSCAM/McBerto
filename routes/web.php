@@ -34,10 +34,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
         Route::get('/system/history', ActivityHistory::class)->name('system.history');
         Route::get('/system/bugs', BugHistory::class)->name('system.bugs');
+        Route::get('/users', UserManagement::class)->name('users.index');
     });
 
     Route::middleware('role:owner')->group(function () {
-        Route::get('/users', UserManagement::class)->name('users.index');
         Route::get('/system/reset', DataReset::class)->name('system.reset');
     });
 });

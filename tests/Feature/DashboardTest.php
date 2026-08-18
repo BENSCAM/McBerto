@@ -149,7 +149,7 @@ class DashboardTest extends TestCase
             ->assertSet('periodNetProfit', 11000);
     }
 
-    public function test_dashboard_shows_canceled_orders_for_selected_period(): void
+    public function test_dashboard_does_not_show_canceled_orders_section(): void
     {
         $manager = User::factory()->manager()->create();
         $cashier = User::factory()->cashier()->create(['name' => 'Caissier Annulation']);
@@ -175,12 +175,12 @@ class DashboardTest extends TestCase
             ->test(Overview::class)
             ->assertSet('periodCanceledOrdersCount', 1)
             ->assertSet('periodCanceledOrdersTotal', 4500)
-            ->assertSee('Commandes annulées')
-            ->assertSee('MCB-20260816-0001')
-            ->assertSee('Caissier Annulation')
-            ->assertSee('Gérant Annulation')
-            ->assertSee('Erreur de saisie')
-            ->assertSee('4 500 FCFA');
+            ->assertDontSee('Commandes annulées')
+            ->assertDontSee('MCB-20260816-0001')
+            ->assertDontSee('Caissier Annulation')
+            ->assertDontSee('Gérant Annulation')
+            ->assertDontSee('Erreur de saisie')
+            ->assertDontSee('4 500 FCFA');
     }
 
     public function test_change_percent_compares_today_to_yesterday(): void

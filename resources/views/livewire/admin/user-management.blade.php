@@ -2,7 +2,13 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Gestion des utilisateurs</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Création des comptes et gestion des accès à l'application.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                @if (auth()->user()->isOwner())
+                    Création des comptes et gestion des accès à l'application.
+                @else
+                    Gestion des comptes caissiers et autorisations temporaires de date.
+                @endif
+            </p>
         </div>
 
         @if ($error)
@@ -33,11 +39,18 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <x-input-label for="role" value="Rôle" />
-                        <select wire:model="role" id="role" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
-                            <option value="cashier">Caissier</option>
-                            <option value="manager">Gestionnaire</option>
-                            <option value="owner">Propriétaire</option>
-                        </select>
+                        @if (auth()->user()->isOwner())
+                            <select wire:model="role" id="role" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                                <option value="cashier">Caissier</option>
+                                <option value="manager">Gestionnaire</option>
+                                <option value="owner">Propriétaire</option>
+                            </select>
+                        @else
+                            <input type="hidden" wire:model="role" value="cashier">
+                            <div class="mt-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                                Caissier
+                            </div>
+                        @endif
                         <x-input-error :messages="$errors->get('role')" class="mt-2" />
                     </div>
                     <div>

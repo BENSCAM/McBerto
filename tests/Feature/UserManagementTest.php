@@ -12,10 +12,10 @@ class UserManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manager_cannot_access_user_management(): void
+    public function test_manager_can_access_user_management(): void
     {
         $manager = User::factory()->manager()->create();
-        $this->actingAs($manager)->get('/users')->assertForbidden();
+        $this->actingAs($manager)->get('/users')->assertOk();
     }
 
     public function test_owner_can_create_a_user_account(): void
@@ -98,5 +98,61 @@ class UserManagementTest extends TestCase
 
         $this->assertFalse($cashier->refresh()->can_backdate_sales);
         $this->assertNull($cashier->backdate_sales_date);
+    }
+
+    public function test_manager_can_create_only_cashier_accounts(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->set('name', 'Caissier Gérant')
+            ->set('email', 'caissier-gerant@mcberto.test')
+            ->set('role', 'cashier')
+            ->set('password', 'password123')
+            ->call('createUser');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'caissier-gerant@mcberto.test',
+            'role' => 'cashier',
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->set('name', 'Faux Propriétaire')
+            ->set('email', 'owner-force@mcberto.test')
+            ->set('role', 'owner')
+            ->set('password', 'password123')
+            ->call('createUser')
+            ->assertHasErrors(['role']);
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'owner-force@mcberto.test',
+        ]);
+    }
+
+    public function test_manager_sees_and_manages_only_cashier_accounts(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Visible']);
+        $otherManager = User::factory()->manager()->create(['name' => 'Gérant Caché']);
+        $owner = User::factory()->owner()->create(['name' => 'Propriétaire Caché']);
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->assertSee('Caissier Visible')
+            ->assertDontSee('Gérant Caché')
+            ->assertDontSee('Propriétaire Caché')
+            ->call('toggleActive', $cashier->id);
+
+        $this->assertFalse($cashier->refresh()->is_active);
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->call('toggleActive', $otherManager->id)
+            ->assertSet('error', 'Le gérant peut gérer uniquement les comptes caissiers.');
+
+        $this->assertTrue($otherManager->refresh()->is_active);
+        $this->assertTrue($owner->refresh()->is_active);
     }
 }

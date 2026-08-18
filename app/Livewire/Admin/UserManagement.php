@@ -37,12 +37,21 @@ class UserManagement extends Component
 
     public function users()
     {
-        return User::orderBy('name')->paginate(10);
+        return User::query()
+            ->when(Auth::user()->isManager(), fn ($query) => $query->where('role', UserRole::Cashier))
+            ->orderBy('name')
+            ->paginate(10);
     }
 
     public function createUser(): void
     {
         $this->validate();
+
+        if (Auth::user()->isManager() && $this->role !== UserRole::Cashier->value) {
+            throw ValidationException::withMessages([
+                'role' => 'Le gérant peut créer uniquement des comptes caissiers.',
+            ]);
+        }
 
         User::create([
             'name' => $this->name,
@@ -57,10 +66,21 @@ class UserManagement extends Component
         $this->role = 'cashier';
     }
 
+    public function canManageUser(User $target): bool
+    {
+        return Auth::user()->isOwner() || (Auth::user()->isManager() && $target->isCashier());
+    }
+
     public function toggleActive(int $userId): void
     {
         $this->error = null;
         $target = User::findOrFail($userId);
+
+        if (! $this->canManageUser($target)) {
+            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+
+            return;
+        }
 
         if ($target->id === Auth::id()) {
             $this->error = 'Vous ne pouvez pas désactiver votre propre compte.';
@@ -88,6 +108,12 @@ class UserManagement extends Component
     {
         $this->error = null;
         $target = User::findOrFail($userId);
+
+        if (! $this->canManageUser($target)) {
+            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+
+            return;
+        }
 
         if (! $target->isCashier()) {
             $this->error = 'Cette autorisation est réservée aux comptes caissiers.';
@@ -133,6 +159,12 @@ class UserManagement extends Component
     {
         $this->error = null;
         $target = User::findOrFail($userId);
+
+        if (! $this->canManageUser($target)) {
+            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+
+            return;
+        }
 
         $target->update([
             'can_backdate_sales' => false,
