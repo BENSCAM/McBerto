@@ -4,7 +4,9 @@ namespace App\Livewire\System;
 
 use App\Models\ActivityLog;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -108,11 +110,29 @@ class ActivityHistory extends Component
         return str_replace('_', ' ', $this->formatActivityValue($field));
     }
 
+    public function activityDisplayDate(ActivityLog $log): Carbon
+    {
+        if ($log->subject instanceof Sale) {
+            return $log->subject->created_at;
+        }
+
+        if ($log->subject instanceof SaleItem && $log->subject->sale) {
+            return $log->subject->sale->created_at;
+        }
+
+        return $log->created_at;
+    }
+
+    public function activityDateIsSaleDate(ActivityLog $log): bool
+    {
+        return $this->activityDisplayDate($log)->ne($log->created_at);
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {
         $logs = ActivityLog::query()
-            ->with('user')
+            ->with(['user', 'subject'])
             ->when($this->search !== '', fn ($query) => $query->where(function ($query) {
                 $query->where('description', 'like', '%'.$this->search.'%')
                     ->orWhere('subject_type', 'like', '%'.$this->search.'%')
@@ -122,6 +142,10 @@ class ActivityHistory extends Component
             ->when($this->userId !== '', fn ($query) => $query->where('user_id', $this->userId))
             ->latest()
             ->paginate(20);
+
+        $logs->getCollection()->loadMorph('subject', [
+            SaleItem::class => ['sale'],
+        ]);
 
         return view('livewire.system.activity-history', [
             'logs' => $logs,

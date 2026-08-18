@@ -108,7 +108,10 @@
                         @forelse ($logs as $log)
                             <tr wire:key="activity-{{ $log->id }}" class="align-top">
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                    {{ $log->created_at->format('d/m/Y H:i') }}
+                                    {{ $this->activityDisplayDate($log)->format('d/m/Y H:i') }}
+                                    @if ($this->activityDateIsSaleDate($log))
+                                        <div class="text-xs text-gray-400 dark:text-gray-500">Action : {{ $log->created_at->format('d/m/Y H:i') }}</div>
+                                    @endif
                                     @if ($log->ip_address)
                                         <div class="text-xs text-gray-400 dark:text-gray-500">{{ $this->formatActivityValue($log->ip_address) }}</div>
                                     @endif

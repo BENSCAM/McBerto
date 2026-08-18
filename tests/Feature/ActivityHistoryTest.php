@@ -142,6 +142,37 @@ class ActivityHistoryTest extends TestCase
             ->assertSee('Voir');
     }
 
+    public function test_activity_history_shows_sale_date_for_sale_item_logs(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Historique']);
+        $product = Product::factory()->create(['name' => 'Berto Pilons']);
+        $saleDate = now()->subDay()->setTime(15, 45);
+
+        $this->actingAs($cashier);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$saleDate->format('Ymd').'-0001',
+            'created_at' => $saleDate,
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'product_name' => 'Berto Pilons',
+            'unit_price' => 1950,
+            'quantity' => 1,
+            'subtotal' => 1950,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->assertSee($saleDate->format('d/m/Y H:i'))
+            ->assertSee('Action : '.now()->format('d/m/Y H:i'))
+            ->assertSee('Ligne de vente Berto Pilons créé(e)');
+    }
+
     public function test_manager_can_open_order_ticket_from_activity_history(): void
     {
         $manager = User::factory()->manager()->create();
