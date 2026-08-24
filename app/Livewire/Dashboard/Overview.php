@@ -8,6 +8,8 @@ use App\Models\CashRegisterClosing;
 use App\Models\Expense;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\StaffMember;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -145,9 +147,33 @@ class Overview extends Component
     }
 
     #[Computed]
+    public function periodUserPayroll(): int
+    {
+        return $this->payrollAmountFor($this->dashboardPeriod, (int) User::where('is_active', true)->sum('monthly_salary'));
+    }
+
+    #[Computed]
+    public function periodStaffPayroll(): int
+    {
+        return $this->payrollAmountFor($this->dashboardPeriod, (int) StaffMember::where('is_active', true)->sum('monthly_salary'));
+    }
+
+    #[Computed]
+    public function periodPayrollTotal(): int
+    {
+        return $this->periodUserPayroll + $this->periodStaffPayroll;
+    }
+
+    #[Computed]
+    public function periodOperatingExpenses(): int
+    {
+        return $this->periodExpenses + $this->periodPayrollTotal;
+    }
+
+    #[Computed]
     public function periodNetProfit(): int
     {
-        return $this->periodRevenue - $this->periodExpenses;
+        return $this->periodRevenue - $this->periodOperatingExpenses;
     }
 
     #[Computed]
@@ -188,7 +214,7 @@ class Overview extends Component
         [$start, $end] = $this->previousDashboardRange();
         $expenses = (int) Expense::whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->sum('amount');
 
-        return $this->revenueForRange($start, $end) - $expenses;
+        return $this->revenueForRange($start, $end) - $expenses - $this->payrollAmountFor($this->dashboardPeriod);
     }
 
     #[Computed]
@@ -414,6 +440,18 @@ class Overview extends Component
             ->count();
 
         return $closedCount + $openSalesCount;
+    }
+
+    protected function payrollAmountFor(string $period, ?int $monthlyPayroll = null): int
+    {
+        $monthlyPayroll ??= (int) User::where('is_active', true)->sum('monthly_salary')
+            + (int) StaffMember::where('is_active', true)->sum('monthly_salary');
+
+        return match ($period) {
+            'month' => $monthlyPayroll,
+            'year' => $monthlyPayroll * 12,
+            default => 0,
+        };
     }
 
     protected function effectiveSalesQuery(?Carbon $start = null, ?Carbon $end = null)

@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Chiffre d'affaires</div>
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodRevenue, 0, ',', ' ') }} FCFA</div>
@@ -43,13 +43,45 @@
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodAverageTicket, 0, ',', ' ') }} FCFA</div>
             </div>
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-                <div class="text-sm text-gray-500 dark:text-gray-400">Bénéfice net</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Dépenses générales</div>
+                <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodExpenses, 0, ',', ' ') }} FCFA</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400">Salaires</div>
+                <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodPayrollTotal, 0, ',', ' ') }} FCFA</div>
+                @if ($dashboardPeriod === 'day')
+                    <div class="mt-1 text-xs text-gray-400 dark:text-gray-500">Pris en compte au mois / année</div>
+                @else
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Comptes: {{ number_format($this->periodUserPayroll, 0, ',', ' ') }} · Personnel: {{ number_format($this->periodStaffPayroll, 0, ',', ' ') }}
+                    </div>
+                @endif
+            </div>
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                <div class="text-sm text-gray-500 dark:text-gray-400">Bénéfice net réel</div>
                 <div class="text-2xl font-semibold {{ $this->periodNetProfit >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-red-600 dark:text-red-400' }}">
                     {{ number_format($this->periodNetProfit, 0, ',', ' ') }} FCFA
                 </div>
                 <x-dashboard.change-badge :percent="$this->periodNetProfitChangePercent" />
             </div>
         </div>
+
+        @if ($dashboardPeriod !== 'day')
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Salaires comptes système</div>
+                    <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodUserPayroll, 0, ',', ' ') }} FCFA</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Salaires personnel sans accès</div>
+                    <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodStaffPayroll, 0, ',', ' ') }} FCFA</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Dépenses opérationnelles</div>
+                    <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodOperatingExpenses, 0, ',', ' ') }} FCFA</div>
+                </div>
+            </div>
+        @endif
 
         <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">

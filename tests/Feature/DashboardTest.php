@@ -11,6 +11,7 @@ use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -128,6 +129,34 @@ class DashboardTest extends TestCase
             ->assertSet('periodAverageTicket', 7500)
             ->assertSet('periodExpenses', 3000)
             ->assertSet('periodNetProfit', 12000);
+    }
+
+    public function test_dashboard_monthly_kpis_show_payroll_and_real_net_profit(): void
+    {
+        $manager = User::factory()->manager()->create(['monthly_salary' => 150000]);
+        User::factory()->cashier()->create(['monthly_salary' => 80000, 'is_active' => true]);
+        User::factory()->cashier()->create(['monthly_salary' => 70000, 'is_active' => false]);
+        StaffMember::create([
+            'name' => 'Cuisinier',
+            'job_title' => 'Cuisinier',
+            'monthly_salary' => 90000,
+            'is_active' => true,
+        ]);
+
+        Sale::factory()->create(['total_amount' => 500000, 'created_at' => now()]);
+        Expense::factory()->create(['amount' => 20000, 'expense_date' => now()->toDateString()]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('dashboardPeriod', 'month')
+            ->assertSet('periodRevenue', 500000)
+            ->assertSet('periodExpenses', 20000)
+            ->assertSet('periodUserPayroll', 230000)
+            ->assertSet('periodStaffPayroll', 90000)
+            ->assertSet('periodPayrollTotal', 320000)
+            ->assertSet('periodOperatingExpenses', 340000)
+            ->assertSet('periodNetProfit', 160000)
+            ->assertSee('Salaires personnel sans accès');
     }
 
     public function test_dashboard_period_kpis_can_use_current_year(): void
