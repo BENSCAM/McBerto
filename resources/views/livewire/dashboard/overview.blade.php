@@ -1,5 +1,5 @@
-<div class="py-12">
-    <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-6">
+<div class="py-8">
+    <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Tableau de bord</h2>
@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Chiffre d'affaires</div>
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodRevenue, 0, ',', ' ') }} FCFA</div>
@@ -51,122 +51,126 @@
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-            <div class="flex items-center justify-between mb-4">
-                <div class="font-medium text-gray-800 dark:text-gray-200">Évolution des ventes</div>
-                <select wire:model.live="period" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md shadow-sm text-sm">
-                    <option value="7d">7 jours</option>
-                    <option value="30d">30 jours</option>
-                    <option value="12m">12 mois</option>
-                </select>
+        <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="font-medium text-gray-800 dark:text-gray-200">Évolution des ventes</div>
+                    <select wire:model.live="period" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 rounded-md shadow-sm text-sm">
+                        <option value="7d">7 jours</option>
+                        <option value="30d">30 jours</option>
+                        <option value="12m">12 mois</option>
+                    </select>
+                </div>
+
+                <div
+                    wire:ignore
+                    class="h-[320px] xl:h-[380px]"
+                    x-data="(() => {
+                        let chart = null;
+                        let listener = null;
+
+                        return {
+                            init() {
+                                const canvas = this.$refs.canvas;
+                                Chart.getChart(canvas)?.destroy();
+
+                                chart = new Chart(canvas, {
+                                    type: 'line',
+                                    data: {
+                                        labels: @js($chart['labels']),
+                                        datasets: [{
+                                            label: 'Ventes (FCFA)',
+                                            data: @js($chart['values']),
+                                            borderColor: 'rgb(216, 15, 15)',
+                                            backgroundColor: 'rgba(216, 15, 15, 0.1)',
+                                            tension: 0.3,
+                                            fill: true,
+                                        }],
+                                    },
+                                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+                                });
+
+                                listener = (event) => {
+                                    if (!chart || !event.detail?.chart) return;
+
+                                    chart.data.labels = [...event.detail.chart.labels];
+                                    chart.data.datasets[0].data = [...event.detail.chart.values];
+                                    chart.update('none');
+                                };
+
+                                window.addEventListener('chart-updated', listener);
+                            },
+                            destroy() {
+                                if (listener) window.removeEventListener('chart-updated', listener);
+                                if (chart) chart.destroy();
+                                listener = null;
+                                chart = null;
+                            },
+                        };
+                    })()"
+                >
+                    <canvas x-ref="canvas"></canvas>
+                </div>
             </div>
 
-            <div
-                wire:ignore
-                x-data="(() => {
-                    let chart = null;
-                    let listener = null;
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
+                <div class="font-medium text-gray-800 dark:text-gray-200 mb-4">
+                    @if ($dashboardPeriod === 'year')
+                        Ventes par mois
+                    @elseif ($dashboardPeriod === 'month')
+                        Ventes par jour du mois
+                    @else
+                        Ventes du jour par heure
+                    @endif
+                </div>
 
-                    return {
-                        init() {
-                            const canvas = this.$refs.canvas;
-                            Chart.getChart(canvas)?.destroy();
+                <div
+                    wire:ignore
+                    class="h-[320px] xl:h-[380px]"
+                    x-data="(() => {
+                        let chart = null;
+                        let listener = null;
 
-                            chart = new Chart(canvas, {
-                                type: 'line',
-                                data: {
-                                    labels: @js($chart['labels']),
-                                    datasets: [{
-                                        label: 'Ventes (FCFA)',
-                                        data: @js($chart['values']),
-                                        borderColor: 'rgb(216, 15, 15)',
-                                        backgroundColor: 'rgba(216, 15, 15, 0.1)',
-                                        tension: 0.3,
-                                        fill: true,
-                                    }],
-                                },
-                                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
-                            });
+                        return {
+                            init() {
+                                const canvas = this.$refs.hourlyCanvas;
+                                Chart.getChart(canvas)?.destroy();
 
-                            listener = (event) => {
-                                if (!chart || !event.detail?.chart) return;
+                                chart = new Chart(canvas, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: @js($periodBreakdown['labels']),
+                                        datasets: [{
+                                            label: 'Ventes (FCFA)',
+                                            data: @js($periodBreakdown['values']),
+                                            backgroundColor: 'rgba(216, 15, 15, 0.7)',
+                                            borderRadius: 3,
+                                        }],
+                                    },
+                                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+                                });
 
-                                chart.data.labels = [...event.detail.chart.labels];
-                                chart.data.datasets[0].data = [...event.detail.chart.values];
-                                chart.update('none');
-                            };
+                                listener = (event) => {
+                                    if (!chart || !event.detail?.chart) return;
 
-                            window.addEventListener('chart-updated', listener);
-                        },
-                        destroy() {
-                            if (listener) window.removeEventListener('chart-updated', listener);
-                            if (chart) chart.destroy();
-                            listener = null;
-                            chart = null;
-                        },
-                    };
-                })()"
-            >
-                <canvas x-ref="canvas"></canvas>
-            </div>
-        </div>
+                                    chart.data.labels = [...event.detail.chart.labels];
+                                    chart.data.datasets[0].data = [...event.detail.chart.values];
+                                    chart.update('none');
+                                };
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-            <div class="font-medium text-gray-800 dark:text-gray-200 mb-4">
-                @if ($dashboardPeriod === 'year')
-                    Ventes par mois
-                @elseif ($dashboardPeriod === 'month')
-                    Ventes par jour du mois
-                @else
-                    Ventes du jour par heure
-                @endif
-            </div>
-
-            <div
-                wire:ignore
-                x-data="(() => {
-                    let chart = null;
-                    let listener = null;
-
-                    return {
-                        init() {
-                            const canvas = this.$refs.hourlyCanvas;
-                            Chart.getChart(canvas)?.destroy();
-
-                            chart = new Chart(canvas, {
-                                type: 'bar',
-                                data: {
-                                    labels: @js($periodBreakdown['labels']),
-                                    datasets: [{
-                                        label: 'Ventes (FCFA)',
-                                        data: @js($periodBreakdown['values']),
-                                        backgroundColor: 'rgba(216, 15, 15, 0.7)',
-                                        borderRadius: 3,
-                                    }],
-                                },
-                                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
-                            });
-
-                            listener = (event) => {
-                                if (!chart || !event.detail?.chart) return;
-
-                                chart.data.labels = [...event.detail.chart.labels];
-                                chart.data.datasets[0].data = [...event.detail.chart.values];
-                                chart.update('none');
-                            };
-
-                            window.addEventListener('period-breakdown-updated', listener);
-                        },
-                        destroy() {
-                            if (listener) window.removeEventListener('period-breakdown-updated', listener);
-                            if (chart) chart.destroy();
-                            listener = null;
-                            chart = null;
-                        },
-                    };
-                })()"
-            >
-                <canvas x-ref="hourlyCanvas"></canvas>
+                                window.addEventListener('period-breakdown-updated', listener);
+                            },
+                            destroy() {
+                                if (listener) window.removeEventListener('period-breakdown-updated', listener);
+                                if (chart) chart.destroy();
+                                listener = null;
+                                chart = null;
+                            },
+                        };
+                    })()"
+                >
+                    <canvas x-ref="hourlyCanvas"></canvas>
+                </div>
             </div>
         </div>
 
