@@ -269,13 +269,13 @@ new #[Layout('layouts.app')] class extends Component
                 </button>
             </div>
 
-            <div class="p-6 space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <div class="xl:col-span-2">
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
+                    <div class="xl:col-span-4">
                         <x-input-label for="search" value="Recherche" />
                         <x-text-input wire:model.live.debounce.300ms="search" id="search" class="block mt-1 w-full" type="search" placeholder="Nom du produit ou catégorie" />
                     </div>
-                    <div>
+                    <div class="xl:col-span-3">
                         <x-input-label for="filterCategoryId" value="Catégorie" />
                         <select wire:model.live="filterCategoryId" id="filterCategoryId" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="">Toutes les catégories</option>
@@ -284,7 +284,7 @@ new #[Layout('layouts.app')] class extends Component
                             @endforeach
                         </select>
                     </div>
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="filterServiceArea" value="Zone" />
                         <select wire:model.live="filterServiceArea" id="filterServiceArea" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="">Toutes les zones</option>
@@ -293,10 +293,7 @@ new #[Layout('layouts.app')] class extends Component
                             @endforeach
                         </select>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-                    <div>
+                    <div class="xl:col-span-3">
                         <x-input-label for="filterStatus" value="Statut" />
                         <select wire:model.live="filterStatus" id="filterStatus" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="active">Actifs</option>
@@ -304,15 +301,15 @@ new #[Layout('layouts.app')] class extends Component
                             <option value="all">Tous</option>
                         </select>
                     </div>
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="minPrice" value="Prix min." />
                         <x-text-input wire:model.live.debounce.300ms="minPrice" id="minPrice" class="block mt-1 w-full" type="number" min="0" placeholder="0" />
                     </div>
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="maxPrice" value="Prix max." />
                         <x-text-input wire:model.live.debounce.300ms="maxPrice" id="maxPrice" class="block mt-1 w-full" type="number" min="0" placeholder="5000" />
                     </div>
-                    <div class="xl:col-span-2">
+                    <div class="xl:col-span-4">
                         <x-input-label for="sortBy" value="Tri" />
                         <select wire:model.live="sortBy" id="sortBy" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="name_asc">Nom A-Z</option>
@@ -323,6 +320,7 @@ new #[Layout('layouts.app')] class extends Component
                             <option value="newest">Plus récents</option>
                         </select>
                     </div>
+                    <div class="hidden xl:block xl:col-span-4"></div>
                 </div>
             </div>
         </div>
@@ -333,26 +331,18 @@ new #[Layout('layouts.app')] class extends Component
             </div>
 
             <form wire:submit="save" class="p-6 space-y-5">
-                <div class="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-4">
-                    <div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4">
+                    <div class="xl:col-span-5">
                         <x-input-label for="name" value="Nom du produit" />
                         <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
                         <x-input-error :messages="$errors->get('name')" class="mt-2" />
                     </div>
-                    <div>
-                        <x-input-label for="emoji" value="Emoji" />
-                        <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />
-                        <x-input-error :messages="$errors->get('emoji')" class="mt-2" />
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="price" value="Prix (FCFA)" />
                         <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" min="0" required />
                         <x-input-error :messages="$errors->get('price')" class="mt-2" />
                     </div>
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="service_area" value="Zone" />
                         <select wire:model="service_area" id="service_area" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             @foreach ($this->serviceAreaOptions() as $serviceArea)
@@ -361,7 +351,7 @@ new #[Layout('layouts.app')] class extends Component
                         </select>
                         <x-input-error :messages="$errors->get('service_area')" class="mt-2" />
                     </div>
-                    <div>
+                    <div class="xl:col-span-2">
                         <x-input-label for="category_id" value="Catégorie" />
                         <select wire:model="category_id" id="category_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="">-- Choisir --</option>
@@ -371,24 +361,31 @@ new #[Layout('layouts.app')] class extends Component
                         </select>
                         <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
                     </div>
-                </div>
-
-                <div>
-                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Suggestions rapides</div>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($this->emojiSuggestions() as $suggestion)
-                            <button type="button" wire:click="pickEmoji('{{ $suggestion }}')" class="text-lg leading-none w-9 h-9 flex items-center justify-center rounded-md border {{ $emoji === $suggestion ? 'border-brand-500 bg-brand-50 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-brand-400' }}">
-                                {{ $suggestion }}
-                            </button>
-                        @endforeach
+                    <div class="xl:col-span-1">
+                        <x-input-label for="emoji" value="Emoji" />
+                        <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />
+                        <x-input-error :messages="$errors->get('emoji')" class="mt-2" />
                     </div>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-3 pt-2">
-                    <x-primary-button>{{ $editingId ? 'Mettre à jour le produit' : 'Ajouter le produit' }}</x-primary-button>
-                    @if ($editingId)
-                        <button type="button" wire:click="cancelEdit" class="text-sm text-gray-600 dark:text-gray-400 underline">Annuler</button>
-                    @endif
+                <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4 pt-1">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Suggestions rapides</div>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($this->emojiSuggestions() as $suggestion)
+                                <button type="button" wire:click="pickEmoji('{{ $suggestion }}')" class="text-lg leading-none w-9 h-9 flex items-center justify-center rounded-md border {{ $emoji === $suggestion ? 'border-brand-500 bg-brand-50 dark:bg-gray-700' : 'border-gray-200 dark:border-gray-700 hover:border-brand-400' }}">
+                                    {{ $suggestion }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <x-primary-button>{{ $editingId ? 'Mettre à jour le produit' : 'Ajouter le produit' }}</x-primary-button>
+                        @if ($editingId)
+                            <button type="button" wire:click="cancelEdit" class="text-sm text-gray-600 dark:text-gray-400 underline">Annuler</button>
+                        @endif
+                    </div>
                 </div>
             </form>
         </div>
