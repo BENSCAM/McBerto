@@ -55,8 +55,8 @@ class AccountingTest extends TestCase
             ->test('expenses.index')
             ->call('edit', $expense->id)
             ->assertSet('editingId', $expense->id)
-            ->set('category', 'matieres_premieres')
-            ->set('description', 'Achat ingrédients')
+            ->set('category', 'transport')
+            ->set('description', 'Transport marchandises')
             ->set('amount', '27500')
             ->set('expense_date', now()->subDay()->format('Y-m-d'))
             ->call('save')
@@ -64,8 +64,8 @@ class AccountingTest extends TestCase
 
         $this->assertDatabaseHas('expenses', [
             'id' => $expense->id,
-            'category' => 'matieres_premieres',
-            'description' => 'Achat ingrédients',
+            'category' => 'transport',
+            'description' => 'Transport marchandises',
             'amount' => 27500,
             'expense_date' => now()->subDay()->startOfDay()->format('Y-m-d H:i:s'),
         ]);
@@ -123,5 +123,30 @@ class AccountingTest extends TestCase
             ->set('date', now()->subDay()->format('Y-m-d'))
             ->assertSet('date', now()->format('Y-m-d'))
             ->assertSet('revenue', 0);
+    }
+
+    public function test_monthly_report_includes_active_user_salaries(): void
+    {
+        $owner = User::factory()->owner()->create(['monthly_salary' => 150000]);
+        User::factory()->cashier()->create(['monthly_salary' => 80000, 'is_active' => true]);
+        User::factory()->cashier()->create(['monthly_salary' => 90000, 'is_active' => false]);
+
+        Sale::factory()->create([
+            'user_id' => $owner->id,
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 500000,
+        ]);
+        Expense::factory()->create([
+            'expense_date' => now()->format('Y-m-d'),
+            'category' => 'charges',
+            'amount' => 20000,
+        ]);
+
+        Livewire::actingAs($owner)
+            ->test(DailyReport::class)
+            ->set('period', 'month')
+            ->assertSet('payrollTotal', 230000)
+            ->assertSet('operatingExpensesTotal', 250000)
+            ->assertSet('netProfit', 250000);
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\RawMaterialStockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -151,6 +152,8 @@ class OfflineSaleSyncController extends Controller
                         'subtotal' => (int) $item['subtotal'],
                     ]);
                 }
+
+                app(RawMaterialStockService::class)->consumeForSale($sale);
 
                 return $sale;
             });

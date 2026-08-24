@@ -46,6 +46,18 @@ class Product extends Model
         return $this->hasMany(SaleItem::class);
     }
 
+    public function recipes(): HasMany
+    {
+        return $this->hasMany(ProductRecipe::class);
+    }
+
+    public function materialCost(): int
+    {
+        return (int) round($this->recipes->sum(
+            fn (ProductRecipe $recipe) => (float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost
+        ));
+    }
+
     public function activityLabel(): string
     {
         return "Produit {$this->name}";

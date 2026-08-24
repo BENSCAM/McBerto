@@ -27,6 +27,12 @@ class UserManagement extends Component
     #[Validate('required|in:cashier,manager,owner')]
     public string $role = 'cashier';
 
+    #[Validate('nullable|string|max:100')]
+    public string $job_title = '';
+
+    #[Validate('required|integer|min:0')]
+    public string $monthly_salary = '0';
+
     #[Validate('required|string|min:8')]
     public string $password = '';
 
@@ -34,6 +40,9 @@ class UserManagement extends Component
 
     /** @var array<int, string> */
     public array $backdateSaleDates = [];
+
+    /** @var array<int, array{job_title: string, monthly_salary: string}> */
+    public array $employment = [];
 
     public function users()
     {
@@ -57,13 +66,16 @@ class UserManagement extends Component
             'name' => $this->name,
             'email' => $this->email,
             'role' => UserRole::from($this->role),
+            'job_title' => $this->job_title ?: null,
+            'monthly_salary' => (int) $this->monthly_salary,
             'password' => Hash::make($this->password),
             'email_verified_at' => now(),
             'is_active' => true,
         ]);
 
-        $this->reset(['name', 'email', 'role', 'password']);
+        $this->reset(['name', 'email', 'role', 'job_title', 'monthly_salary', 'password']);
         $this->role = 'cashier';
+        $this->monthly_salary = '0';
     }
 
     public function canManageUser(User $target): bool
@@ -102,6 +114,56 @@ class UserManagement extends Component
         }
 
         $target->update(['is_active' => ! $target->is_active]);
+    }
+
+    public function editEmployment(int $userId): void
+    {
+        $this->error = null;
+        $target = User::findOrFail($userId);
+
+        if (! $this->canManageUser($target)) {
+            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+
+            return;
+        }
+
+        $this->employment[$target->id] = [
+            'job_title' => $target->job_title ?? '',
+            'monthly_salary' => (string) $target->monthly_salary,
+        ];
+    }
+
+    public function saveEmployment(int $userId): void
+    {
+        $this->error = null;
+        $target = User::findOrFail($userId);
+
+        if (! $this->canManageUser($target)) {
+            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+
+            return;
+        }
+
+        $this->validate([
+            "employment.{$userId}.job_title" => ['nullable', 'string', 'max:100'],
+            "employment.{$userId}.monthly_salary" => ['required', 'integer', 'min:0'],
+        ], [
+            "employment.{$userId}.monthly_salary.required" => 'Le salaire mensuel est obligatoire.',
+            "employment.{$userId}.monthly_salary.integer" => 'Le salaire mensuel doit être un nombre entier.',
+            "employment.{$userId}.monthly_salary.min" => 'Le salaire mensuel ne peut pas être négatif.',
+        ]);
+
+        $target->update([
+            'job_title' => $this->employment[$userId]['job_title'] ?: null,
+            'monthly_salary' => (int) $this->employment[$userId]['monthly_salary'],
+        ]);
+
+        unset($this->employment[$userId]);
+    }
+
+    public function cancelEmploymentEdit(int $userId): void
+    {
+        unset($this->employment[$userId]);
     }
 
     public function authorizeBackdatedSales(int $userId): void

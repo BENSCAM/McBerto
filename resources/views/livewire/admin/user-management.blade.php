@@ -54,6 +54,19 @@
                         <x-input-error :messages="$errors->get('role')" class="mt-2" />
                     </div>
                     <div>
+                        <x-input-label for="job_title" value="Poste occupé" />
+                        <x-text-input wire:model="job_title" id="job_title" class="block mt-1 w-full" type="text" placeholder="Caissier, cuisinier, serveur..." />
+                        <x-input-error :messages="$errors->get('job_title')" class="mt-2" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="monthly_salary" value="Salaire mensuel (FCFA)" />
+                        <x-text-input wire:model="monthly_salary" id="monthly_salary" class="block mt-1 w-full" type="number" min="0" required />
+                        <x-input-error :messages="$errors->get('monthly_salary')" class="mt-2" />
+                    </div>
+                    <div>
                         <x-input-label for="password" value="Mot de passe" />
                         <x-text-input wire:model="password" id="password" class="block mt-1 w-full" type="password" required />
                         <x-input-error :messages="$errors->get('password')" class="mt-2" />
@@ -74,6 +87,7 @@
                         <th class="px-6 py-3">Nom</th>
                         <th class="px-6 py-3">Email</th>
                         <th class="px-6 py-3">Rôle</th>
+                        <th class="px-6 py-3">Poste / salaire</th>
                         <th class="px-6 py-3">Statut</th>
                         <th class="px-6 py-3">Date autorisée</th>
                         <th class="px-6 py-3"></th>
@@ -85,6 +99,26 @@
                             <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $user->name }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $user->email }}</td>
                             <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ $user->role->label() }}</td>
+                            <td class="px-6 py-3 min-w-64">
+                                @if (isset($employment[$user->id]))
+                                    <div class="space-y-2">
+                                        <x-text-input wire:model="employment.{{ $user->id }}.job_title" class="block w-full text-sm" type="text" placeholder="Poste occupé" />
+                                        <x-input-error :messages="$errors->get('employment.'.$user->id.'.job_title')" class="mt-1" />
+                                        <x-text-input wire:model="employment.{{ $user->id }}.monthly_salary" class="block w-full text-sm" type="number" min="0" placeholder="Salaire mensuel" />
+                                        <x-input-error :messages="$errors->get('employment.'.$user->id.'.monthly_salary')" class="mt-1" />
+                                        <div class="flex gap-2">
+                                            <button type="button" wire:click="saveEmployment({{ $user->id }})" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">Enregistrer</button>
+                                            <button type="button" wire:click="cancelEmploymentEdit({{ $user->id }})" class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="space-y-1">
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ $user->job_title ?: 'Poste non renseigné' }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($user->monthly_salary, 0, ',', ' ') }} FCFA / mois</div>
+                                        <button type="button" wire:click="editEmployment({{ $user->id }})" class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Modifier</button>
+                                    </div>
+                                @endif
+                            </td>
                             <td class="px-6 py-3">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $user->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300' }}">
                                     {{ $user->is_active ? 'Actif' : 'Désactivé' }}
@@ -139,7 +173,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-10 text-center">
+                            <td colspan="7" class="px-6 py-10 text-center">
                                 <div class="text-sm font-medium text-gray-700 dark:text-gray-300">Aucun utilisateur enregistré</div>
                                 <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Créez un compte pour donner accès à l'application.</div>
                             </td>

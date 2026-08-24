@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\RawMaterialStockService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -348,12 +349,16 @@ class Terminal extends Component
             return;
         }
 
-        $sale->update([
-            'sale_status' => SaleStatus::Canceled,
-            'canceled_by' => Auth::id(),
-            'canceled_at' => now(),
-            'cancellation_reason' => mb_strimwidth($reason, 0, 255),
-        ]);
+        DB::transaction(function () use ($sale, $reason) {
+            $sale->update([
+                'sale_status' => SaleStatus::Canceled,
+                'canceled_by' => Auth::id(),
+                'canceled_at' => now(),
+                'cancellation_reason' => mb_strimwidth($reason, 0, 255),
+            ]);
+
+            app(RawMaterialStockService::class)->restoreForCanceledSale($sale, Auth::user());
+        });
 
         $this->salePendingCancellationId = null;
         $this->cancellationReason = '';
@@ -460,6 +465,8 @@ class Terminal extends Component
                 ]);
             }
 
+            app(RawMaterialStockService::class)->consumeForSale($sale);
+
             return $sale;
         });
 
@@ -535,6 +542,8 @@ class Terminal extends Component
                     'subtotal' => $item['price'] * $item['quantity'],
                 ]);
             }
+
+            app(RawMaterialStockService::class)->consumeForSale($sale);
 
             return $sale;
         });

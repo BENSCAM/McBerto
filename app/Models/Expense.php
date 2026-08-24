@@ -17,6 +17,18 @@ class Expense extends Model
         'matieres_premieres' => 'Matières premières',
         'charges' => 'Charges',
         'salaires' => 'Salaires',
+        'transport' => 'Transport',
+        'loyer' => 'Loyer',
+        'electricite_eau' => 'Électricité / eau',
+        'autre' => 'Autre',
+    ];
+
+    public const GENERAL_CATEGORIES = [
+        'charges' => 'Charges',
+        'salaires' => 'Salaires',
+        'transport' => 'Transport',
+        'loyer' => 'Loyer',
+        'electricite_eau' => 'Électricité / eau',
         'autre' => 'Autre',
     ];
 

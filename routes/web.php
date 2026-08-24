@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Pos\OfflineSaleSyncController;
+use App\Http\Controllers\Reports\ManagementReportPdfController;
 use App\Livewire\Admin\UserManagement;
 use App\Livewire\Dashboard\Overview;
 use App\Livewire\Pos\CashRegisterClosing;
@@ -30,11 +31,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', Overview::class)->name('dashboard');
         Volt::route('/categories', 'categories.index')->name('categories.index');
         Volt::route('/products', 'products.index')->name('products.index');
+        Volt::route('/raw-materials', 'raw-materials.index')->name('raw-materials.index');
+        Volt::route('/raw-material-purchases', 'raw-material-purchases.index')->name('raw-material-purchases.index');
+        Volt::route('/product-recipes', 'product-recipes.index')->name('product-recipes.index');
+        Volt::route('/stock-movements', 'stock-movements.index')->name('stock-movements.index');
         Volt::route('/expenses', 'expenses.index')->name('expenses.index');
         Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
         Route::get('/system/history', ActivityHistory::class)->name('system.history');
         Route::get('/system/bugs', BugHistory::class)->name('system.bugs');
         Route::get('/users', UserManagement::class)->name('users.index');
+        Route::get('/reports/management/pdf', ManagementReportPdfController::class)->name('reports.management.pdf');
     });
 
     Route::middleware('role:owner')->group(function () {

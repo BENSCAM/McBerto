@@ -27,12 +27,16 @@ class UserManagementTest extends TestCase
             ->set('name', 'Nouveau Caissier')
             ->set('email', 'caissier@mcberto.test')
             ->set('role', 'cashier')
+            ->set('job_title', 'Caissier comptoir')
+            ->set('monthly_salary', '85000')
             ->set('password', 'password123')
             ->call('createUser');
 
         $this->assertDatabaseHas('users', [
             'email' => 'caissier@mcberto.test',
             'role' => 'cashier',
+            'job_title' => 'Caissier comptoir',
+            'monthly_salary' => 85000,
             'is_active' => 1,
         ]);
     }
@@ -154,5 +158,27 @@ class UserManagementTest extends TestCase
 
         $this->assertTrue($otherManager->refresh()->is_active);
         $this->assertTrue($owner->refresh()->is_active);
+    }
+
+    public function test_owner_can_update_user_job_title_and_salary(): void
+    {
+        $owner = User::factory()->owner()->create();
+        $cashier = User::factory()->cashier()->create([
+            'job_title' => 'Ancien poste',
+            'monthly_salary' => 60000,
+        ]);
+
+        Livewire::actingAs($owner)
+            ->test(UserManagement::class)
+            ->call('editEmployment', $cashier->id)
+            ->set("employment.{$cashier->id}.job_title", 'Serveur')
+            ->set("employment.{$cashier->id}.monthly_salary", '90000')
+            ->call('saveEmployment', $cashier->id);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $cashier->id,
+            'job_title' => 'Serveur',
+            'monthly_salary' => 90000,
+        ]);
     }
 }

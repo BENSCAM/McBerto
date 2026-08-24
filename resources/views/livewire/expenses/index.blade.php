@@ -11,7 +11,7 @@ new #[Layout('layouts.app')] class extends Component
 {
     use WithPagination;
 
-    #[Validate('required|in:matieres_premieres,charges,salaires,autre')]
+    #[Validate('required|in:charges,salaires,transport,loyer,electricite_eau,autre')]
     public string $category = '';
 
     #[Validate('nullable|string|max:255')]
@@ -86,7 +86,7 @@ new #[Layout('layouts.app')] class extends Component
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Dépenses</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Saisie des sorties d'argent à prendre en compte dans le rapport journalier.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Saisie des charges générales. Les achats de matières se font dans le module Achats.</p>
         </div>
 
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
@@ -100,7 +100,7 @@ new #[Layout('layouts.app')] class extends Component
                     <x-input-label for="category" value="Catégorie" />
                     <select wire:model="category" id="category" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                         <option value="">-- Choisir --</option>
-                        @foreach (\App\Models\Expense::CATEGORIES as $value => $label)
+                        @foreach (\App\Models\Expense::GENERAL_CATEGORIES as $value => $label)
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>

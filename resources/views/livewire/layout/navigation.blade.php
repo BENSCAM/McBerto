@@ -40,6 +40,18 @@ new class extends Component
                         <x-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')">
                             {{ __('Produits') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('raw-materials.index')" :active="request()->routeIs('raw-materials.*')">
+                            {{ __('Matières') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('raw-material-purchases.index')" :active="request()->routeIs('raw-material-purchases.*')">
+                            {{ __('Achats') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('product-recipes.index')" :active="request()->routeIs('product-recipes.*')">
+                            {{ __('Recettes') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('stock-movements.index')" :active="request()->routeIs('stock-movements.*')">
+                            {{ __('Stocks') }}
+                        </x-nav-link>
                         <x-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')">
                             {{ __('Dépenses') }}
                         </x-nav-link>
@@ -124,6 +136,18 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')">
                     {{ __('Produits') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('raw-materials.index')" :active="request()->routeIs('raw-materials.*')">
+                    {{ __('Matières') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('raw-material-purchases.index')" :active="request()->routeIs('raw-material-purchases.*')">
+                    {{ __('Achats') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('product-recipes.index')" :active="request()->routeIs('product-recipes.*')">
+                    {{ __('Recettes') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stock-movements.index')" :active="request()->routeIs('stock-movements.*')">
+                    {{ __('Stocks') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')">
                     {{ __('Dépenses') }}

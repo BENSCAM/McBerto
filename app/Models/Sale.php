@@ -78,6 +78,11 @@ class Sale extends Model
         return $this->hasMany(SaleItem::class);
     }
 
+    public function rawMaterialStockMovements(): HasMany
+    {
+        return $this->hasMany(RawMaterialStockMovement::class);
+    }
+
     public function closing(): BelongsTo
     {
         return $this->belongsTo(CashRegisterClosing::class, 'cash_register_closing_id');

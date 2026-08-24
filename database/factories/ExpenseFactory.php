@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Expense>
+ * @extends Factory<Expense>
  */
 class ExpenseFactory extends Factory
 {
@@ -20,7 +20,7 @@ class ExpenseFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'category' => fake()->randomElement(array_keys(Expense::CATEGORIES)),
+            'category' => fake()->randomElement(array_keys(Expense::GENERAL_CATEGORIES)),
             'description' => fake()->sentence(),
             'amount' => fake()->numberBetween(2000, 50000),
             'expense_date' => fake()->dateTimeBetween('-30 days', 'now')->format('Y-m-d'),
