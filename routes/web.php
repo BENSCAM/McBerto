@@ -4,6 +4,9 @@ use App\Http\Controllers\Pos\OfflineSaleSyncController;
 use App\Http\Controllers\Reports\ManagementReportPdfController;
 use App\Livewire\Admin\UserManagement;
 use App\Livewire\Dashboard\Overview;
+use App\Livewire\Hr\Attendance;
+use App\Livewire\Hr\DisciplineHistory;
+use App\Livewire\Hr\MonthlyReport;
 use App\Livewire\Pos\CashRegisterClosing;
 use App\Livewire\Pos\ClosingHistory;
 use App\Livewire\Pos\Terminal;
@@ -40,6 +43,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/system/history', ActivityHistory::class)->name('system.history');
         Route::get('/system/bugs', BugHistory::class)->name('system.bugs');
         Route::get('/users', UserManagement::class)->name('users.index');
+        Route::get('/hr/presence', Attendance::class)->name('hr.attendance');
+        Route::get('/hr/discipline', DisciplineHistory::class)->name('hr.discipline');
+        Route::get('/hr/rapport', MonthlyReport::class)->name('hr.report');
         Route::get('/reports/management/pdf', ManagementReportPdfController::class)->name('reports.management.pdf');
     });
 

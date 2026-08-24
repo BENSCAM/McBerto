@@ -35,6 +35,11 @@ new class extends Component
             ['label' => 'Dépenses', 'route' => 'expenses.index', 'active' => 'expenses.index'],
             ['label' => 'Clôture', 'route' => 'pos.closing', 'active' => 'pos.closing'],
         ],
+        'RH' => [
+            ['label' => 'Présence', 'route' => 'hr.attendance', 'active' => 'hr.attendance'],
+            ['label' => 'Sanctions', 'route' => 'hr.discipline', 'active' => 'hr.discipline'],
+            ['label' => 'Rapport RH', 'route' => 'hr.report', 'active' => 'hr.report'],
+        ],
         'Système' => [
             ['label' => 'Utilisateurs', 'route' => 'users.index', 'active' => 'users.index'],
             ['label' => 'Historique', 'route' => 'system.history', 'active' => 'system.history'],
