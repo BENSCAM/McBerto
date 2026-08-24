@@ -71,4 +71,34 @@ class BugHistoryTest extends TestCase
 
         $this->assertNull($bug->fresh()->resolved_at);
     }
+
+    public function test_manager_can_mark_all_open_bugs_as_resolved(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        collect(range(1, 3))->each(fn (int $index) => BugLog::create([
+            'exception_class' => RuntimeException::class,
+            'message' => "Erreur ouverte {$index}",
+            'fingerprint' => hash('sha256', "open-{$index}"),
+        ]));
+
+        BugLog::create([
+            'exception_class' => RuntimeException::class,
+            'message' => 'Erreur déjà résolue',
+            'fingerprint' => hash('sha256', 'resolved'),
+            'resolved_at' => now(),
+            'resolved_by' => $manager->id,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(BugHistory::class)
+            ->call('resolveAllOpenBugs')
+            ->assertSet('notice', '3 bug(s) marqué(s) comme résolu(s).');
+
+        $this->assertSame(0, BugLog::whereNull('resolved_at')->count());
+        $this->assertSame(4, BugLog::whereNotNull('resolved_at')->count());
+        $this->assertSame(3, BugLog::where('resolved_by', $manager->id)
+            ->where('resolution_note', 'Marqué résolu en lot depuis l’historique des bugs.')
+            ->count());
+    }
 }

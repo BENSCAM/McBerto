@@ -5,11 +5,25 @@
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Historique des bugs</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Erreurs techniques capturées automatiquement par la plateforme.</p>
             </div>
-            <div class="flex items-center gap-2 text-sm">
+            <div class="flex flex-wrap items-center justify-end gap-2 text-sm">
+                <button
+                    type="button"
+                    x-on:click="$store.confirmModal.open('Marquer tous les bugs ouverts comme résolus ?', () => $wire.resolveAllOpenBugs())"
+                    @disabled($openCount === 0)
+                    class="inline-flex items-center rounded-md bg-brand-600 px-3 py-2 font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Tout marquer résolu
+                </button>
                 <span class="rounded-full bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100 px-3 py-1">{{ $openCount }} ouvert(s)</span>
                 <span class="rounded-full bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100 px-3 py-1">{{ $resolvedCount }} résolu(s)</span>
             </div>
         </div>
+
+        @if ($notice)
+            <div class="rounded-md bg-blue-50 dark:bg-blue-900 p-3 text-blue-800 dark:text-blue-100 text-sm">
+                {{ $notice }}
+            </div>
+        @endif
 
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-4">
             <div class="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-3">

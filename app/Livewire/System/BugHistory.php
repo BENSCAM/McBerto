@@ -20,6 +20,8 @@ class BugHistory extends Component
 
     public string $resolutionNote = '';
 
+    public ?string $notice = null;
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -46,6 +48,23 @@ class BugHistory extends Component
     {
         BugLog::findOrFail($bugId)->markResolved(Auth::user(), $this->resolutionNote ?: null);
         $this->closeDetails();
+    }
+
+    public function resolveAllOpenBugs(): void
+    {
+        $count = BugLog::whereNull('resolved_at')->update([
+            'resolved_at' => now(),
+            'resolved_by' => Auth::id(),
+            'resolution_note' => 'Marqué résolu en lot depuis l’historique des bugs.',
+            'updated_at' => now(),
+        ]);
+
+        $this->notice = $count > 0
+            ? "{$count} bug(s) marqué(s) comme résolu(s)."
+            : 'Aucun bug ouvert à résoudre.';
+
+        $this->closeDetails();
+        $this->resetPage();
     }
 
     public function reopenBug(int $bugId): void
