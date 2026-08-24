@@ -27,6 +27,17 @@ class PosTerminalTest extends TestCase
         }
     }
 
+    public function test_cashier_pos_interface_does_not_use_management_sidebar(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+
+        $this->actingAs($cashier)
+            ->get('/pos')
+            ->assertOk()
+            ->assertDontSee('lg:pl-72', false)
+            ->assertDontSee('lg:w-72', false);
+    }
+
     public function test_cashier_can_complete_a_sale(): void
     {
         $cashier = User::factory()->cashier()->create();

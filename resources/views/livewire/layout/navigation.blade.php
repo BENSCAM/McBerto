@@ -102,68 +102,70 @@ new class extends Component
         </div>
     </div>
 
-    <aside class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white lg:dark:border-gray-700 lg:dark:bg-gray-800">
-        <div class="flex h-16 shrink-0 items-center border-b border-gray-100 px-6 dark:border-gray-700">
-            <a href="{{ $user->isAtLeastManager() ? route('dashboard') : route('pos.terminal') }}" class="flex items-center gap-3">
-                <x-application-logo class="block h-9 w-auto rounded" />
-                <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">McBerto</span>
-            </a>
-        </div>
+    @if ($user->isAtLeastManager())
+        <aside class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white lg:dark:border-gray-700 lg:dark:bg-gray-800">
+            <div class="flex h-16 shrink-0 items-center border-b border-gray-100 px-6 dark:border-gray-700">
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
+                    <x-application-logo class="block h-9 w-auto rounded" />
+                    <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">McBerto</span>
+                </a>
+            </div>
 
-        <div class="flex-1 overflow-y-auto px-4 py-5">
-            @foreach ($groups as $groupLabel => $links)
-                <div class="{{ $loop->first ? '' : 'mt-6' }}">
-                    <div class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ $groupLabel }}</div>
-                    <div class="mt-2 space-y-1">
-                        @foreach ($links as $link)
-                            @php($active = request()->routeIs($link['active']))
-                            <a
-                                href="{{ route($link['route']) }}"
-                                wire:navigate
-                                class="flex min-h-10 items-center rounded-md px-3 py-2 text-sm font-medium transition {{ $active ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
-                            >
-                                {{ $link['label'] }}
-                            </a>
-                        @endforeach
+            <div class="flex-1 overflow-y-auto px-4 py-5">
+                @foreach ($groups as $groupLabel => $links)
+                    <div class="{{ $loop->first ? '' : 'mt-6' }}">
+                        <div class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ $groupLabel }}</div>
+                        <div class="mt-2 space-y-1">
+                            @foreach ($links as $link)
+                                @php($active = request()->routeIs($link['active']))
+                                <a
+                                    href="{{ route($link['route']) }}"
+                                    wire:navigate
+                                    class="flex min-h-10 items-center rounded-md px-3 py-2 text-sm font-medium transition {{ $active ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-200' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
+                                >
+                                    {{ $link['label'] }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="border-t border-gray-100 p-4 dark:border-gray-700">
+                <div class="relative" x-data="{ accountOpen: false }" @click.outside="accountOpen = false" @keydown.escape.window="accountOpen = false">
+                    <button
+                        type="button"
+                        @click="accountOpen = ! accountOpen"
+                        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                        <span class="min-w-0">
+                            <span class="block truncate font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</span>
+                            <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $user->email }}</span>
+                        </span>
+                        <svg class="ms-3 h-4 w-4 shrink-0 fill-current transition" :class="{ 'rotate-180': accountOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div
+                        x-show="accountOpen"
+                        x-transition
+                        class="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-700"
+                        style="display: none;"
+                        @click="accountOpen = false"
+                    >
+                        <x-dropdown-link :href="route('profile')" wire:navigate>
+                            {{ __('Profile') }}
+                        </x-dropdown-link>
+
+                        <button wire:click="logout" class="w-full text-start">
+                            <x-dropdown-link>
+                                {{ __('Log Out') }}
+                            </x-dropdown-link>
+                        </button>
                     </div>
                 </div>
-            @endforeach
-        </div>
-
-        <div class="border-t border-gray-100 p-4 dark:border-gray-700">
-            <div class="relative" x-data="{ accountOpen: false }" @click.outside="accountOpen = false" @keydown.escape.window="accountOpen = false">
-                <button
-                    type="button"
-                    @click="accountOpen = ! accountOpen"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                    <span class="min-w-0">
-                        <span class="block truncate font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</span>
-                        <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $user->email }}</span>
-                    </span>
-                    <svg class="ms-3 h-4 w-4 shrink-0 fill-current transition" :class="{ 'rotate-180': accountOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-
-                <div
-                    x-show="accountOpen"
-                    x-transition
-                    class="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-700"
-                    style="display: none;"
-                    @click="accountOpen = false"
-                >
-                    <x-dropdown-link :href="route('profile')" wire:navigate>
-                        {{ __('Profile') }}
-                    </x-dropdown-link>
-
-                    <button wire:click="logout" class="w-full text-start">
-                        <x-dropdown-link>
-                            {{ __('Log Out') }}
-                        </x-dropdown-link>
-                    </button>
-                </div>
             </div>
-        </div>
-    </aside>
+        </aside>
+    @endif
 </nav>
