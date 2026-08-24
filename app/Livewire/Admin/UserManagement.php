@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Enums\UserRole;
 use App\Models\CashRegisterClosing;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -44,6 +45,16 @@ class UserManagement extends Component
     /** @var array<int, array{job_title: string, monthly_salary: string}> */
     public array $employment = [];
 
+    public string $staff_name = '';
+
+    public string $staff_job_title = '';
+
+    public string $staff_monthly_salary = '0';
+
+    public string $staff_note = '';
+
+    public ?int $editingStaffId = null;
+
     public function users()
     {
         return User::query()
@@ -51,9 +62,23 @@ class UserManagement extends Component
             ->paginate(10);
     }
 
+    public function staffMembers()
+    {
+        return StaffMember::orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
+    }
+
     public function createUser(): void
     {
-        $this->validate();
+        $this->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', 'in:cashier,manager,owner'],
+            'job_title' => ['nullable', 'string', 'max:100'],
+            'monthly_salary' => ['required', 'integer', 'min:0'],
+            'password' => ['required', 'string', 'min:8'],
+        ]);
 
         if (Auth::user()->isManager() && $this->role !== UserRole::Cashier->value) {
             throw ValidationException::withMessages([
@@ -168,6 +193,60 @@ class UserManagement extends Component
     public function cancelEmploymentEdit(int $userId): void
     {
         unset($this->employment[$userId]);
+    }
+
+    public function saveStaffMember(): void
+    {
+        $this->validate([
+            'staff_name' => ['required', 'string', 'max:100'],
+            'staff_job_title' => ['nullable', 'string', 'max:100'],
+            'staff_monthly_salary' => ['required', 'integer', 'min:0'],
+            'staff_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $data = [
+            'name' => $this->staff_name,
+            'job_title' => $this->staff_job_title ?: null,
+            'monthly_salary' => (int) $this->staff_monthly_salary,
+            'note' => $this->staff_note ?: null,
+            'is_active' => true,
+        ];
+
+        if ($this->editingStaffId) {
+            StaffMember::findOrFail($this->editingStaffId)->update($data);
+        } else {
+            StaffMember::create($data);
+        }
+
+        $this->resetStaffForm();
+    }
+
+    public function editStaffMember(int $staffMemberId): void
+    {
+        $staffMember = StaffMember::findOrFail($staffMemberId);
+
+        $this->editingStaffId = $staffMember->id;
+        $this->staff_name = $staffMember->name;
+        $this->staff_job_title = $staffMember->job_title ?? '';
+        $this->staff_monthly_salary = (string) $staffMember->monthly_salary;
+        $this->staff_note = $staffMember->note ?? '';
+    }
+
+    public function cancelStaffEdit(): void
+    {
+        $this->resetStaffForm();
+    }
+
+    public function toggleStaffActive(int $staffMemberId): void
+    {
+        $staffMember = StaffMember::findOrFail($staffMemberId);
+        $staffMember->update(['is_active' => ! $staffMember->is_active]);
+    }
+
+    protected function resetStaffForm(): void
+    {
+        $this->reset(['editingStaffId', 'staff_name', 'staff_job_title', 'staff_note']);
+        $this->staff_monthly_salary = '0';
     }
 
     public function authorizeBackdatedSales(int $userId): void

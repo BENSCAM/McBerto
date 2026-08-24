@@ -12,6 +12,7 @@ use App\Models\RawMaterialPurchase;
 use App\Models\RawMaterialStockMovement;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 
@@ -158,7 +159,8 @@ class ManagementReportService
 
     protected function payrollTotal(string $period): int
     {
-        $monthlyPayroll = (int) User::where('is_active', true)->sum('monthly_salary');
+        $monthlyPayroll = (int) User::where('is_active', true)->sum('monthly_salary')
+            + (int) StaffMember::where('is_active', true)->sum('monthly_salary');
 
         return match ($period) {
             'month' => $monthlyPayroll,

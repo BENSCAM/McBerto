@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Admin\UserManagement;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -230,5 +231,38 @@ class UserManagementTest extends TestCase
             'job_title' => 'Serveur',
             'monthly_salary' => 90000,
         ]);
+    }
+
+    public function test_manager_can_manage_staff_members_without_system_access(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->set('staff_name', 'Marie Serveuse')
+            ->set('staff_job_title', 'Serveuse')
+            ->set('staff_monthly_salary', '75000')
+            ->set('staff_note', 'Service salle')
+            ->call('saveStaffMember');
+
+        $staffMember = StaffMember::first();
+
+        $this->assertNotNull($staffMember);
+        $this->assertSame('Marie Serveuse', $staffMember->name);
+        $this->assertSame(75000, $staffMember->monthly_salary);
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->call('editStaffMember', $staffMember->id)
+            ->set('staff_job_title', 'Responsable salle')
+            ->set('staff_monthly_salary', '90000')
+            ->call('saveStaffMember')
+            ->call('toggleStaffActive', $staffMember->id);
+
+        $staffMember->refresh();
+
+        $this->assertSame('Responsable salle', $staffMember->job_title);
+        $this->assertSame(90000, $staffMember->monthly_salary);
+        $this->assertFalse($staffMember->is_active);
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\SaleStatus;
 use App\Livewire\Reports\DailyReport;
 use App\Models\Expense;
 use App\Models\Sale;
+use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -130,6 +131,18 @@ class AccountingTest extends TestCase
         $owner = User::factory()->owner()->create(['monthly_salary' => 150000]);
         User::factory()->cashier()->create(['monthly_salary' => 80000, 'is_active' => true]);
         User::factory()->cashier()->create(['monthly_salary' => 90000, 'is_active' => false]);
+        StaffMember::create([
+            'name' => 'Cuisinier',
+            'job_title' => 'Cuisinier',
+            'monthly_salary' => 70000,
+            'is_active' => true,
+        ]);
+        StaffMember::create([
+            'name' => 'Ancienne serveuse',
+            'job_title' => 'Serveuse',
+            'monthly_salary' => 50000,
+            'is_active' => false,
+        ]);
 
         Sale::factory()->create([
             'user_id' => $owner->id,
@@ -145,8 +158,8 @@ class AccountingTest extends TestCase
         Livewire::actingAs($owner)
             ->test(DailyReport::class)
             ->set('period', 'month')
-            ->assertSet('payrollTotal', 230000)
-            ->assertSet('operatingExpensesTotal', 250000)
-            ->assertSet('netProfit', 250000);
+            ->assertSet('payrollTotal', 300000)
+            ->assertSet('operatingExpensesTotal', 320000)
+            ->assertSet('netProfit', 180000);
     }
 }
