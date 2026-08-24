@@ -31,9 +31,63 @@ new #[Layout('layouts.app')] class extends Component
 
     public ?string $notice = null;
 
+    public string $search = '';
+
+    public string $filterCategoryId = '';
+
+    public string $filterServiceArea = '';
+
+    public string $filterStatus = 'active';
+
+    public string $minPrice = '';
+
+    public string $maxPrice = '';
+
+    public string $sortBy = 'name_asc';
+
     public function products()
     {
-        return Product::with('category')->orderBy('service_area')->orderBy('name')->paginate(10);
+        return $this->filteredProductsQuery()->paginate(10);
+    }
+
+    public function productsCount(): int
+    {
+        return $this->filteredProductsQuery()->count();
+    }
+
+    protected function filteredProductsQuery()
+    {
+        $query = Product::query()
+            ->with('category')
+            ->when(trim($this->search) !== '', function ($query) {
+                $search = trim($this->search);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('category', fn ($query) => $query->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->when($this->filterCategoryId !== '', fn ($query) => $query->where('category_id', (int) $this->filterCategoryId))
+            ->when($this->filterServiceArea !== '', fn ($query) => $query->where('service_area', $this->filterServiceArea))
+            ->when($this->filterStatus === 'active', fn ($query) => $query->where('is_active', true))
+            ->when($this->filterStatus === 'inactive', fn ($query) => $query->where('is_active', false))
+            ->when($this->minPrice !== '' && is_numeric($this->minPrice), fn ($query) => $query->where('price', '>=', (int) $this->minPrice))
+            ->when($this->maxPrice !== '' && is_numeric($this->maxPrice), fn ($query) => $query->where('price', '<=', (int) $this->maxPrice));
+
+        match ($this->sortBy) {
+            'name_desc' => $query->orderByDesc('name'),
+            'price_asc' => $query->orderBy('price')->orderBy('name'),
+            'price_desc' => $query->orderByDesc('price')->orderBy('name'),
+            'category_asc' => $query
+                ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+                ->select('products.*')
+                ->orderBy('categories.name')
+                ->orderBy('products.name'),
+            'newest' => $query->orderByDesc('created_at')->orderByDesc('id'),
+            default => $query->orderBy('name'),
+        };
+
+        return $query;
     }
 
     public function categoryOptions()
@@ -49,6 +103,29 @@ new #[Layout('layouts.app')] class extends Component
     public function serviceAreaOptions(): array
     {
         return ServiceArea::cases();
+    }
+
+    public function updated($property): void
+    {
+        if (in_array($property, [
+            'search',
+            'filterCategoryId',
+            'filterServiceArea',
+            'filterStatus',
+            'minPrice',
+            'maxPrice',
+            'sortBy',
+        ], true)) {
+            $this->resetPage();
+        }
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset(['search', 'filterCategoryId', 'filterServiceArea', 'minPrice', 'maxPrice']);
+        $this->filterStatus = 'active';
+        $this->sortBy = 'name_asc';
+        $this->resetPage();
     }
 
     public function pickEmoji(string $emoji): void
@@ -178,6 +255,79 @@ new #[Layout('layouts.app')] class extends Component
         @endif
 
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 class="font-medium text-gray-900 dark:text-gray-100">Filtres</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $this->productsCount() }} produit(s) trouvé(s)</p>
+                </div>
+                <button
+                    type="button"
+                    wire:click="resetFilters"
+                    class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                    Réinitialiser
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="xl:col-span-2">
+                        <x-input-label for="search" value="Recherche" />
+                        <x-text-input wire:model.live.debounce.300ms="search" id="search" class="block mt-1 w-full" type="search" placeholder="Nom du produit ou catégorie" />
+                    </div>
+                    <div>
+                        <x-input-label for="filterCategoryId" value="Catégorie" />
+                        <select wire:model.live="filterCategoryId" id="filterCategoryId" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            <option value="">Toutes les catégories</option>
+                            @foreach ($this->categoryOptions() as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <x-input-label for="filterServiceArea" value="Zone" />
+                        <select wire:model.live="filterServiceArea" id="filterServiceArea" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            <option value="">Toutes les zones</option>
+                            @foreach ($this->serviceAreaOptions() as $serviceArea)
+                                <option value="{{ $serviceArea->value }}">{{ $serviceArea->label() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                    <div>
+                        <x-input-label for="filterStatus" value="Statut" />
+                        <select wire:model.live="filterStatus" id="filterStatus" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            <option value="active">Actifs</option>
+                            <option value="inactive">Inactifs</option>
+                            <option value="all">Tous</option>
+                        </select>
+                    </div>
+                    <div>
+                        <x-input-label for="minPrice" value="Prix min." />
+                        <x-text-input wire:model.live.debounce.300ms="minPrice" id="minPrice" class="block mt-1 w-full" type="number" min="0" placeholder="0" />
+                    </div>
+                    <div>
+                        <x-input-label for="maxPrice" value="Prix max." />
+                        <x-text-input wire:model.live.debounce.300ms="maxPrice" id="maxPrice" class="block mt-1 w-full" type="number" min="0" placeholder="5000" />
+                    </div>
+                    <div class="xl:col-span-2">
+                        <x-input-label for="sortBy" value="Tri" />
+                        <select wire:model.live="sortBy" id="sortBy" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
+                            <option value="name_asc">Nom A-Z</option>
+                            <option value="name_desc">Nom Z-A</option>
+                            <option value="price_asc">Prix croissant</option>
+                            <option value="price_desc">Prix décroissant</option>
+                            <option value="category_asc">Catégorie</option>
+                            <option value="newest">Plus récents</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
                 <h3 class="font-medium text-gray-900 dark:text-gray-100">{{ $editingId ? 'Modifier le produit' : 'Créer un produit' }}</h3>
             </div>
@@ -185,10 +335,10 @@ new #[Layout('layouts.app')] class extends Component
             <form wire:submit="save" class="p-6 space-y-5">
                 <div class="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-4">
                     <div>
-                    <x-input-label for="name" value="Nom du produit" />
-                    <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
-                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
-                </div>
+                        <x-input-label for="name" value="Nom du produit" />
+                        <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" required />
+                        <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                    </div>
                     <div>
                         <x-input-label for="emoji" value="Emoji" />
                         <x-text-input wire:model="emoji" id="emoji" class="block mt-1 w-full text-center text-lg" type="text" maxlength="8" placeholder="🍔" />

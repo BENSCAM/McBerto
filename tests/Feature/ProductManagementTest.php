@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ServiceArea;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Sale;
@@ -229,5 +230,91 @@ class ProductManagementTest extends TestCase
 
         $this->assertEquals(10, $paginator->count());
         $this->assertEquals(15, $paginator->total());
+    }
+
+    public function test_manager_can_filter_products_with_advanced_filters(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $burgers = Category::factory()->create(['name' => 'Burgers']);
+        $drinks = Category::factory()->create(['name' => 'Boissons']);
+
+        Product::factory()->create([
+            'name' => 'Berto Beef',
+            'category_id' => $burgers->id,
+            'service_area' => ServiceArea::Standard,
+            'price' => 2500,
+            'is_active' => true,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Jus VIP',
+            'category_id' => $drinks->id,
+            'service_area' => ServiceArea::Vip,
+            'price' => 1800,
+            'is_active' => false,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Mini Burger',
+            'category_id' => $burgers->id,
+            'service_area' => ServiceArea::Vip,
+            'price' => 900,
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->assertSee('Berto Beef')
+            ->assertSee('Mini Burger')
+            ->assertDontSee('Jus VIP')
+            ->set('search', 'Berto')
+            ->assertSee('Berto Beef')
+            ->assertDontSee('Mini Burger')
+            ->set('search', '')
+            ->set('filterCategoryId', (string) $burgers->id)
+            ->set('filterServiceArea', ServiceArea::Vip->value)
+            ->assertSee('Mini Burger')
+            ->assertDontSee('Berto Beef')
+            ->set('filterServiceArea', '')
+            ->set('minPrice', '1000')
+            ->set('maxPrice', '2600')
+            ->assertSee('Berto Beef')
+            ->assertDontSee('Mini Burger')
+            ->set('filterStatus', 'inactive')
+            ->set('filterCategoryId', '')
+            ->set('minPrice', '')
+            ->set('maxPrice', '')
+            ->assertSee('Jus VIP')
+            ->assertDontSee('Berto Beef');
+    }
+
+    public function test_manager_can_reset_product_filters(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+
+        Product::factory()->create([
+            'name' => 'Produit actif',
+            'category_id' => $category->id,
+            'is_active' => true,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Produit inactif',
+            'category_id' => $category->id,
+            'is_active' => false,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->set('search', 'inactif')
+            ->set('filterStatus', 'all')
+            ->assertSee('Produit inactif')
+            ->call('resetFilters')
+            ->assertSet('search', '')
+            ->assertSet('filterStatus', 'active')
+            ->assertSet('sortBy', 'name_asc')
+            ->assertSee('Produit actif')
+            ->assertDontSee('Produit inactif');
     }
 }
