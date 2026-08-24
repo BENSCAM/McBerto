@@ -135,18 +135,18 @@ class UserManagementTest extends TestCase
         ]);
     }
 
-    public function test_manager_sees_and_manages_only_cashier_accounts(): void
+    public function test_manager_sees_all_accounts_but_can_only_toggle_cashier_accounts(): void
     {
         $manager = User::factory()->manager()->create();
         $cashier = User::factory()->cashier()->create(['name' => 'Caissier Visible']);
-        $otherManager = User::factory()->manager()->create(['name' => 'Gérant Caché']);
-        $owner = User::factory()->owner()->create(['name' => 'Propriétaire Caché']);
+        $otherManager = User::factory()->manager()->create(['name' => 'Gérant Visible']);
+        $owner = User::factory()->owner()->create(['name' => 'Propriétaire Visible']);
 
         Livewire::actingAs($manager)
             ->test(UserManagement::class)
             ->assertSee('Caissier Visible')
-            ->assertDontSee('Gérant Caché')
-            ->assertDontSee('Propriétaire Caché')
+            ->assertSee('Gérant Visible')
+            ->assertSee('Propriétaire Visible')
             ->call('toggleActive', $cashier->id);
 
         $this->assertFalse($cashier->refresh()->is_active);
@@ -158,6 +158,56 @@ class UserManagementTest extends TestCase
 
         $this->assertTrue($otherManager->refresh()->is_active);
         $this->assertTrue($owner->refresh()->is_active);
+    }
+
+    public function test_manager_can_update_accounting_fields_for_self_owner_and_manager_accounts(): void
+    {
+        $manager = User::factory()->manager()->create([
+            'name' => 'Gérant',
+            'job_title' => null,
+            'monthly_salary' => 0,
+        ]);
+        $owner = User::factory()->owner()->create([
+            'name' => 'Propriétaire',
+            'job_title' => null,
+            'monthly_salary' => 0,
+        ]);
+        $otherManager = User::factory()->manager()->create([
+            'name' => 'Autre gérant',
+            'job_title' => null,
+            'monthly_salary' => 0,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(UserManagement::class)
+            ->call('editEmployment', $manager->id)
+            ->set("employment.{$manager->id}.job_title", 'Gérant principal')
+            ->set("employment.{$manager->id}.monthly_salary", '180000')
+            ->call('saveEmployment', $manager->id)
+            ->call('editEmployment', $owner->id)
+            ->set("employment.{$owner->id}.job_title", 'Propriétaire')
+            ->set("employment.{$owner->id}.monthly_salary", '250000')
+            ->call('saveEmployment', $owner->id)
+            ->call('editEmployment', $otherManager->id)
+            ->set("employment.{$otherManager->id}.job_title", 'Responsable salle')
+            ->set("employment.{$otherManager->id}.monthly_salary", '160000')
+            ->call('saveEmployment', $otherManager->id);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $manager->id,
+            'job_title' => 'Gérant principal',
+            'monthly_salary' => 180000,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $owner->id,
+            'job_title' => 'Propriétaire',
+            'monthly_salary' => 250000,
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $otherManager->id,
+            'job_title' => 'Responsable salle',
+            'monthly_salary' => 160000,
+        ]);
     }
 
     public function test_owner_can_update_user_job_title_and_salary(): void

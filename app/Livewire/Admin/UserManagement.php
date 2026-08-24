@@ -47,7 +47,6 @@ class UserManagement extends Component
     public function users()
     {
         return User::query()
-            ->when(Auth::user()->isManager(), fn ($query) => $query->where('role', UserRole::Cashier))
             ->orderBy('name')
             ->paginate(10);
     }
@@ -81,6 +80,11 @@ class UserManagement extends Component
     public function canManageUser(User $target): bool
     {
         return Auth::user()->isOwner() || (Auth::user()->isManager() && $target->isCashier());
+    }
+
+    public function canManageEmployment(User $target): bool
+    {
+        return Auth::user()->isAtLeastManager();
     }
 
     public function toggleActive(int $userId): void
@@ -121,8 +125,8 @@ class UserManagement extends Component
         $this->error = null;
         $target = User::findOrFail($userId);
 
-        if (! $this->canManageUser($target)) {
-            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+        if (! $this->canManageEmployment($target)) {
+            $this->error = 'Vous n’avez pas l’autorisation de modifier ces informations comptables.';
 
             return;
         }
@@ -138,8 +142,8 @@ class UserManagement extends Component
         $this->error = null;
         $target = User::findOrFail($userId);
 
-        if (! $this->canManageUser($target)) {
-            $this->error = 'Le gérant peut gérer uniquement les comptes caissiers.';
+        if (! $this->canManageEmployment($target)) {
+            $this->error = 'Vous n’avez pas l’autorisation de modifier ces informations comptables.';
 
             return;
         }

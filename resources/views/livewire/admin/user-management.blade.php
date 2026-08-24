@@ -6,7 +6,7 @@
                 @if (auth()->user()->isOwner())
                     Création des comptes et gestion des accès à l'application.
                 @else
-                    Gestion des comptes caissiers et autorisations temporaires de date.
+                    Suivi comptable des comptes, postes et salaires.
                 @endif
             </p>
         </div>
@@ -166,9 +166,13 @@
                                 @endif
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">
-                                    {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
-                                </button>
+                                @if ($this->canManageUser($user))
+                                    <button x-on:click="$store.confirmModal.open('Confirmer le changement de statut de ce compte ?', () => $wire.toggleActive({{ $user->id }}))" class="inline-flex items-center rounded-md border border-brand-200 dark:border-brand-800 px-2.5 py-1 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-gray-700">
+                                        {{ $user->is_active ? 'Désactiver' : 'Réactiver' }}
+                                    </button>
+                                @else
+                                    <span class="text-xs text-gray-400 dark:text-gray-500">Accès protégé</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
