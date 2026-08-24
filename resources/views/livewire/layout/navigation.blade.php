@@ -107,6 +107,65 @@ new class extends Component
         </div>
     </div>
 
+    @if (! $user->isAtLeastManager())
+        <div class="hidden lg:block bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+            <div class="w-full px-6">
+                <div class="flex h-16 items-center justify-between gap-6">
+                    <a href="{{ route('pos.terminal') }}" class="flex shrink-0 items-center gap-3">
+                        <x-application-logo class="block h-9 w-auto rounded" />
+                        <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">McBerto</span>
+                    </a>
+
+                    <div class="flex flex-1 items-center justify-center gap-10">
+                        @foreach ($operationLinks as $link)
+                            <a
+                                href="{{ route($link['route']) }}"
+                                wire:navigate
+                                class="inline-flex h-16 items-center border-b-2 px-1 text-base font-medium transition {{ request()->routeIs($link['active']) ? 'border-brand-500 text-gray-900 dark:text-gray-100' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white' }}"
+                            >
+                                {{ $link['label'] }}
+                            </a>
+                        @endforeach
+                    </div>
+
+                    <div class="relative shrink-0" x-data="{ accountOpen: false }" @click.outside="accountOpen = false" @keydown.escape.window="accountOpen = false">
+                        <button
+                            type="button"
+                            @click="accountOpen = ! accountOpen"
+                            class="flex max-w-64 items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                            <span class="min-w-0">
+                                <span class="block truncate font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</span>
+                                <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $user->email }}</span>
+                            </span>
+                            <svg class="h-4 w-4 shrink-0 fill-current transition" :class="{ 'rotate-180': accountOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+
+                        <div
+                            x-show="accountOpen"
+                            x-transition
+                            class="absolute right-0 z-50 mt-2 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-700"
+                            style="display: none;"
+                            @click="accountOpen = false"
+                        >
+                            <x-dropdown-link :href="route('profile')" wire:navigate>
+                                {{ __('Profile') }}
+                            </x-dropdown-link>
+
+                            <button wire:click="logout" class="w-full text-start">
+                                <x-dropdown-link>
+                                    {{ __('Log Out') }}
+                                </x-dropdown-link>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if ($user->isAtLeastManager())
         <aside class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:border-r lg:border-gray-200 lg:bg-white lg:dark:border-gray-700 lg:dark:bg-gray-800">
             <div class="flex h-16 shrink-0 items-center border-b border-gray-100 px-6 dark:border-gray-700">

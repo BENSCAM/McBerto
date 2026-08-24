@@ -29,11 +29,15 @@ class PosTerminalTest extends TestCase
 
     public function test_cashier_pos_interface_does_not_use_management_sidebar(): void
     {
-        $cashier = User::factory()->cashier()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissière Test']);
 
         $this->actingAs($cashier)
             ->get('/pos')
             ->assertOk()
+            ->assertSee('Caisse')
+            ->assertSee('Clôture')
+            ->assertSee('Rapport')
+            ->assertSee('Caissière Test')
             ->assertDontSee('lg:pl-72', false)
             ->assertDontSee('lg:w-72', false);
     }
