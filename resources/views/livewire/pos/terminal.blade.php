@@ -5,7 +5,7 @@
 >
     <div wire:loading.class="opacity-100" class="fixed top-0 left-0 right-0 h-1 bg-brand-600 z-50 opacity-0 transition-opacity duration-150"></div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0">
+    <div class="w-full px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div class="flex items-center gap-3">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Caisse</h2>

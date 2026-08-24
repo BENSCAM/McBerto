@@ -1,5 +1,5 @@
 <div class="py-12">
-    <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+    <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Historique des clôtures</h2>
             <a href="{{ route('pos.closing') }}" wire:navigate class="text-sm text-brand-600 dark:text-brand-400 underline">Clôture du jour</a>

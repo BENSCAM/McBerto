@@ -1,5 +1,5 @@
 <div class="py-8">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Réinitialisation des données</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Remet les données d'exploitation à zéro avant le lancement réel.</p>

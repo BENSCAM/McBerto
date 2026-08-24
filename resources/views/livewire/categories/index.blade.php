@@ -60,7 +60,7 @@ new #[Layout('layouts.app')] class extends Component
 }; ?>
 
 <div class="py-8">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Catégories</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Organisation du catalogue affiché dans la caisse.</p>
