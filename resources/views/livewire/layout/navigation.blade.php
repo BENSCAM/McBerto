@@ -131,20 +131,28 @@ new class extends Component
         </div>
 
         <div class="border-t border-gray-100 p-4 dark:border-gray-700">
-            <x-dropdown align="right" width="48">
-                <x-slot name="trigger">
-                    <button class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                        <span class="min-w-0">
-                            <span class="block truncate font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</span>
-                            <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $user->email }}</span>
-                        </span>
-                        <svg class="ms-3 h-4 w-4 shrink-0 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-                </x-slot>
+            <div class="relative" x-data="{ accountOpen: false }" @click.outside="accountOpen = false" @keydown.escape.window="accountOpen = false">
+                <button
+                    type="button"
+                    @click="accountOpen = ! accountOpen"
+                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                    <span class="min-w-0">
+                        <span class="block truncate font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</span>
+                        <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $user->email }}</span>
+                    </span>
+                    <svg class="ms-3 h-4 w-4 shrink-0 fill-current transition" :class="{ 'rotate-180': accountOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
 
-                <x-slot name="content">
+                <div
+                    x-show="accountOpen"
+                    x-transition
+                    class="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-700"
+                    style="display: none;"
+                    @click="accountOpen = false"
+                >
                     <x-dropdown-link :href="route('profile')" wire:navigate>
                         {{ __('Profile') }}
                     </x-dropdown-link>
@@ -154,8 +162,8 @@ new class extends Component
                             {{ __('Log Out') }}
                         </x-dropdown-link>
                     </button>
-                </x-slot>
-            </x-dropdown>
+                </div>
+            </div>
         </div>
     </aside>
 </nav>
