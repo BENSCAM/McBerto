@@ -83,6 +83,52 @@
             </div>
         @endif
 
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <div class="font-medium text-gray-800 dark:text-gray-200">Alertes stock</div>
+                    <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {{ $this->criticalStockCount }} critique(s) · {{ $this->watchStockCount }} à surveiller
+                    </div>
+                </div>
+
+                <a href="{{ route('raw-materials.index') }}" wire:navigate class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    Voir les stocks
+                </a>
+            </div>
+
+            @if ($this->stockAlerts->isEmpty())
+                <div class="px-5 py-6 text-sm text-gray-500 dark:text-gray-400">Aucune matière première critique ou proche du seuil.</div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                            <tr>
+                                <th class="px-5 py-3">Matière</th>
+                                <th class="px-5 py-3">Stock actuel</th>
+                                <th class="px-5 py-3">Seuil</th>
+                                <th class="px-5 py-3">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            @foreach ($this->stockAlerts as $alert)
+                                <tr>
+                                    <td class="px-5 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $alert['name'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">{{ number_format($alert['current_quantity'], 3, ',', ' ') }} {{ $alert['unit'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-400">{{ number_format($alert['threshold'], 3, ',', ' ') }} {{ $alert['unit'] }}</td>
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $alert['status'] === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-100' }}">
+                                            {{ $alert['label'] }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
         <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                 <div class="flex items-center justify-between mb-4">

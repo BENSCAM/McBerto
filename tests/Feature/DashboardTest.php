@@ -9,6 +9,7 @@ use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\Product;
+use App\Models\RawMaterial;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StaffMember;
@@ -157,6 +158,49 @@ class DashboardTest extends TestCase
             ->assertSet('periodOperatingExpenses', 340000)
             ->assertSet('periodNetProfit', 160000)
             ->assertSee('Salaires personnel sans accès');
+    }
+
+    public function test_dashboard_shows_stock_alerts(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        RawMaterial::create([
+            'name' => 'Huile critique',
+            'unit' => 'litre',
+            'current_quantity' => 1,
+            'low_stock_threshold' => 2,
+            'average_unit_cost' => 1500,
+            'is_active' => true,
+        ]);
+
+        RawMaterial::create([
+            'name' => 'Oeufs à surveiller',
+            'unit' => 'piece',
+            'current_quantity' => 35,
+            'low_stock_threshold' => 20,
+            'average_unit_cost' => 100,
+            'is_active' => true,
+        ]);
+
+        RawMaterial::create([
+            'name' => 'Farine OK',
+            'unit' => 'kg',
+            'current_quantity' => 50,
+            'low_stock_threshold' => 10,
+            'average_unit_cost' => 500,
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->assertSet('criticalStockCount', 1)
+            ->assertSet('watchStockCount', 1)
+            ->assertSee('Alertes stock')
+            ->assertSee('Huile critique')
+            ->assertSee('Critique')
+            ->assertSee('Oeufs à surveiller')
+            ->assertSee('À surveiller')
+            ->assertDontSee('Farine OK');
     }
 
     public function test_dashboard_period_kpis_can_use_current_year(): void

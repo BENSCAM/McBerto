@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
 use App\Models\CashRegisterClosing;
 use App\Models\Expense;
+use App\Models\RawMaterial;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StaffMember;
@@ -311,6 +312,50 @@ class Overview extends Component
             ->latest('canceled_at')
             ->limit(8)
             ->get();
+    }
+
+    #[Computed]
+    public function stockAlerts()
+    {
+        return RawMaterial::query()
+            ->where('is_active', true)
+            ->where('low_stock_threshold', '>', 0)
+            ->whereColumn('current_quantity', '<=', 'low_stock_threshold')
+            ->orWhere(function ($query) {
+                $query->where('is_active', true)
+                    ->where('low_stock_threshold', '>', 0)
+                    ->whereRaw('current_quantity <= low_stock_threshold * 2');
+            })
+            ->orderByRaw('current_quantity / low_stock_threshold asc')
+            ->orderBy('name')
+            ->limit(8)
+            ->get()
+            ->map(function (RawMaterial $material) {
+                $currentQuantity = (float) $material->current_quantity;
+                $threshold = (float) $material->low_stock_threshold;
+                $isCritical = $currentQuantity <= $threshold;
+
+                return [
+                    'name' => $material->name,
+                    'current_quantity' => $currentQuantity,
+                    'threshold' => $threshold,
+                    'unit' => RawMaterial::UNITS[$material->unit] ?? $material->unit,
+                    'status' => $isCritical ? 'critical' : 'watch',
+                    'label' => $isCritical ? 'Critique' : 'À surveiller',
+                ];
+            });
+    }
+
+    #[Computed]
+    public function criticalStockCount(): int
+    {
+        return $this->stockAlerts->where('status', 'critical')->count();
+    }
+
+    #[Computed]
+    public function watchStockCount(): int
+    {
+        return $this->stockAlerts->where('status', 'watch')->count();
     }
 
     #[Computed]
