@@ -47,13 +47,13 @@
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodExpenses, 0, ',', ' ') }} FCFA</div>
             </div>
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-                <div class="text-sm text-gray-500 dark:text-gray-400">Salaires</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Salaires nets à payer</div>
                 <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodPayrollTotal, 0, ',', ' ') }} FCFA</div>
                 @if ($dashboardPeriod === 'day')
                     <div class="mt-1 text-xs text-gray-400 dark:text-gray-500">Pris en compte au mois / année</div>
                 @else
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Comptes: {{ number_format($this->periodUserPayroll, 0, ',', ' ') }} · Personnel: {{ number_format($this->periodStaffPayroll, 0, ',', ' ') }}
+                        Brut: {{ number_format($this->periodUserPayrollGross + $this->periodStaffPayrollGross, 0, ',', ' ') }} · Retenues: {{ number_format($this->periodPayrollDeductions, 0, ',', ' ') }}
                     </div>
                 @endif
             </div>
@@ -69,16 +69,25 @@
         @if ($dashboardPeriod !== 'day')
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Salaires comptes système</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Comptes système à payer</div>
                     <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodUserPayroll, 0, ',', ' ') }} FCFA</div>
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Brut {{ number_format($this->periodUserPayrollGross, 0, ',', ' ') }} · Retenues {{ number_format($this->periodUserPayrollDeductions, 0, ',', ' ') }}
+                    </div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Salaires personnel sans accès</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">Personnel sans accès à payer</div>
                     <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodStaffPayroll, 0, ',', ' ') }} FCFA</div>
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Brut {{ number_format($this->periodStaffPayrollGross, 0, ',', ' ') }} · Retenues {{ number_format($this->periodStaffPayrollDeductions, 0, ',', ' ') }}
+                    </div>
                 </div>
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Dépenses opérationnelles</div>
                     <div class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->periodOperatingExpenses, 0, ',', ' ') }} FCFA</div>
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Dépenses + salaires nets
+                    </div>
                 </div>
             </div>
         @endif

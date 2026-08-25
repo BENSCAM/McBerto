@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Enums\PaymentMethod;
 use App\Enums\SaleStatus;
 use App\Models\CashRegisterClosing;
+use App\Models\DisciplinarySanction;
 use App\Models\Expense;
 use App\Models\RawMaterial;
 use App\Models\Sale;
@@ -148,15 +149,45 @@ class Overview extends Component
     }
 
     #[Computed]
-    public function periodUserPayroll(): int
+    public function periodUserPayrollGross(): int
     {
         return $this->payrollAmountFor($this->dashboardPeriod, (int) User::where('is_active', true)->sum('monthly_salary'));
     }
 
     #[Computed]
-    public function periodStaffPayroll(): int
+    public function periodStaffPayrollGross(): int
     {
         return $this->payrollAmountFor($this->dashboardPeriod, (int) StaffMember::where('is_active', true)->sum('monthly_salary'));
+    }
+
+    #[Computed]
+    public function periodUserPayrollDeductions(): int
+    {
+        return $this->payrollDeductionsFor('user');
+    }
+
+    #[Computed]
+    public function periodStaffPayrollDeductions(): int
+    {
+        return $this->payrollDeductionsFor('staff');
+    }
+
+    #[Computed]
+    public function periodPayrollDeductions(): int
+    {
+        return $this->periodUserPayrollDeductions + $this->periodStaffPayrollDeductions;
+    }
+
+    #[Computed]
+    public function periodUserPayroll(): int
+    {
+        return max(0, $this->periodUserPayrollGross - $this->periodUserPayrollDeductions);
+    }
+
+    #[Computed]
+    public function periodStaffPayroll(): int
+    {
+        return max(0, $this->periodStaffPayrollGross - $this->periodStaffPayrollDeductions);
     }
 
     #[Computed]
@@ -214,8 +245,10 @@ class Overview extends Component
     {
         [$start, $end] = $this->previousDashboardRange();
         $expenses = (int) Expense::whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->sum('amount');
+        $grossPayroll = $this->payrollAmountFor($this->dashboardPeriod);
+        $payrollDeductions = $this->payrollDeductionsBetween($start, $end, 'user') + $this->payrollDeductionsBetween($start, $end, 'staff');
 
-        return $this->revenueForRange($start, $end) - $expenses - $this->payrollAmountFor($this->dashboardPeriod);
+        return $this->revenueForRange($start, $end) - $expenses - max(0, $grossPayroll - $payrollDeductions);
     }
 
     #[Computed]
@@ -497,6 +530,38 @@ class Overview extends Component
             'year' => $monthlyPayroll * 12,
             default => 0,
         };
+    }
+
+    protected function payrollDeductionsFor(string $employeeType): int
+    {
+        if ($this->dashboardPeriod === 'day') {
+            return 0;
+        }
+
+        [$start, $end] = $this->dashboardRange();
+
+        return $this->payrollDeductionsBetween($start, $end, $employeeType);
+    }
+
+    protected function payrollDeductionsBetween(Carbon $start, Carbon $end, string $employeeType): int
+    {
+        if (! in_array($employeeType, ['user', 'staff'], true)) {
+            return 0;
+        }
+
+        $activeEmployeeIds = $employeeType === 'user'
+            ? User::where('is_active', true)->pluck('id')
+            : StaffMember::where('is_active', true)->pluck('id');
+
+        if ($activeEmployeeIds->isEmpty()) {
+            return 0;
+        }
+
+        return (int) DisciplinarySanction::where('employee_type', $employeeType)
+            ->whereIn('employee_id', $activeEmployeeIds)
+            ->where('status', 'validated')
+            ->whereBetween('fault_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('deduction_amount');
     }
 
     protected function effectiveSalesQuery(?Carbon $start = null, ?Carbon $end = null)

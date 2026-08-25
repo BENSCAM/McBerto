@@ -7,6 +7,7 @@ use App\Enums\SaleStatus;
 use App\Livewire\Dashboard\Overview;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
+use App\Models\DisciplinarySanction;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\RawMaterial;
@@ -135,13 +136,38 @@ class DashboardTest extends TestCase
     public function test_dashboard_monthly_kpis_show_payroll_and_real_net_profit(): void
     {
         $manager = User::factory()->manager()->create(['monthly_salary' => 150000]);
-        User::factory()->cashier()->create(['monthly_salary' => 80000, 'is_active' => true]);
+        $cashier = User::factory()->cashier()->create(['monthly_salary' => 80000, 'is_active' => true]);
         User::factory()->cashier()->create(['monthly_salary' => 70000, 'is_active' => false]);
-        StaffMember::create([
+        $staffMember = StaffMember::create([
             'name' => 'Cuisinier',
             'job_title' => 'Cuisinier',
             'monthly_salary' => 90000,
             'is_active' => true,
+        ]);
+
+        DisciplinarySanction::create([
+            'employee_type' => 'user',
+            'employee_id' => $cashier->id,
+            'fault_type' => 'absence',
+            'description' => 'Absence non justifiée',
+            'fault_date' => now()->toDateString(),
+            'sanction_type' => 'salary_deduction',
+            'deduction_amount' => 10000,
+            'responsible_id' => $manager->id,
+            'status' => 'validated',
+            'validated_at' => now(),
+        ]);
+
+        DisciplinarySanction::create([
+            'employee_type' => 'staff',
+            'employee_id' => $staffMember->id,
+            'fault_type' => 'late',
+            'description' => 'Retard non validé',
+            'fault_date' => now()->toDateString(),
+            'sanction_type' => 'salary_deduction',
+            'deduction_amount' => 5000,
+            'responsible_id' => $manager->id,
+            'status' => 'draft',
         ]);
 
         Sale::factory()->create(['total_amount' => 500000, 'created_at' => now()]);
@@ -152,12 +178,17 @@ class DashboardTest extends TestCase
             ->set('dashboardPeriod', 'month')
             ->assertSet('periodRevenue', 500000)
             ->assertSet('periodExpenses', 20000)
-            ->assertSet('periodUserPayroll', 230000)
+            ->assertSet('periodUserPayrollGross', 230000)
+            ->assertSet('periodStaffPayrollGross', 90000)
+            ->assertSet('periodUserPayrollDeductions', 10000)
+            ->assertSet('periodStaffPayrollDeductions', 0)
+            ->assertSet('periodPayrollDeductions', 10000)
+            ->assertSet('periodUserPayroll', 220000)
             ->assertSet('periodStaffPayroll', 90000)
-            ->assertSet('periodPayrollTotal', 320000)
-            ->assertSet('periodOperatingExpenses', 340000)
-            ->assertSet('periodNetProfit', 160000)
-            ->assertSee('Salaires personnel sans accès');
+            ->assertSet('periodPayrollTotal', 310000)
+            ->assertSet('periodOperatingExpenses', 330000)
+            ->assertSet('periodNetProfit', 170000)
+            ->assertSee('Personnel sans accès à payer');
     }
 
     public function test_dashboard_shows_stock_alerts(): void
