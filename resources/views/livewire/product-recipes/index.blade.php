@@ -26,6 +26,14 @@ new #[Layout('layouts.app')] class extends Component
         return Product::with(['recipes.rawMaterial', 'category'])->orderBy('name')->get();
     }
 
+    public function mountedRecipes()
+    {
+        return Product::with(['recipes.rawMaterial', 'category'])
+            ->whereHas('recipes')
+            ->orderBy('name')
+            ->get();
+    }
+
     public function materials()
     {
         return RawMaterial::where('is_active', true)->orderBy('name')->get();
@@ -160,5 +168,55 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
             </div>
         @endif
+
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 class="font-medium text-gray-900 dark:text-gray-100">Recettes déjà montées</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Produits ayant déjà des matières premières configurées.</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                        <tr>
+                            <th class="px-6 py-3">Produit</th>
+                            <th class="px-6 py-3">Matières</th>
+                            <th class="px-6 py-3">Coût matière</th>
+                            <th class="px-6 py-3">Marge estimée</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @forelse ($this->mountedRecipes() as $product)
+                            @php($cost = $this->productCost($product))
+                            <tr wire:key="mounted-recipe-{{ $product->id }}" class="align-top hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $product->name }}</div>
+                                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {{ $product->service_area->label() }} · {{ $product->category?->name ?? 'Sans catégorie' }} · {{ number_format($product->price, 0, ',', ' ') }} FCFA
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach ($product->recipes as $recipe)
+                                            <span class="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                                {{ $recipe->rawMaterial->name }}: {{ number_format((float) $recipe->quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$recipe->rawMaterial->unit] }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ number_format($cost, 0, ',', ' ') }} FCFA</td>
+                                <td class="px-6 py-4 text-sm font-medium {{ $product->price - $cost >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                    {{ number_format($product->price - $cost, 0, ',', ' ') }} FCFA
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune recette montée pour le moment.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

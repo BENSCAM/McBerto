@@ -111,6 +111,36 @@ class RawMaterialManagementTest extends TestCase
             ->assertSee('Burger VIP - VIP');
     }
 
+    public function test_mounted_recipes_are_visible_on_recipe_page(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create([
+            'name' => 'Burger monté',
+            'price' => 1500,
+            'service_area' => ServiceArea::Vip,
+        ]);
+        $material = RawMaterial::create([
+            'name' => 'Sauce maison',
+            'unit' => 'ml',
+            'current_quantity' => 1000,
+            'low_stock_threshold' => 100,
+            'average_unit_cost' => 2,
+        ]);
+
+        ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $material->id,
+            'quantity' => 20,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('product-recipes.index')
+            ->assertSee('Recettes déjà montées')
+            ->assertSee('Burger monté')
+            ->assertSee('VIP')
+            ->assertSee('Sauce maison');
+    }
+
     public function test_sale_deducts_raw_material_stock(): void
     {
         $cashier = User::factory()->cashier()->create();
