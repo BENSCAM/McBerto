@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ServiceArea;
 use App\Livewire\Pos\Terminal;
 use App\Livewire\Reports\DailyReport;
 use App\Models\Category;
@@ -88,6 +89,26 @@ class RawMaterialManagementTest extends TestCase
         ]);
 
         $this->assertSame(40, $product->fresh()->load('recipes.rawMaterial')->materialCost());
+    }
+
+    public function test_recipe_product_selector_shows_service_area(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Product::factory()->create([
+            'name' => 'Burger Standard',
+            'service_area' => ServiceArea::Standard,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Burger VIP',
+            'service_area' => ServiceArea::Vip,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('product-recipes.index')
+            ->assertSee('Burger Standard - Standard')
+            ->assertSee('Burger VIP - VIP');
     }
 
     public function test_sale_deducts_raw_material_stock(): void

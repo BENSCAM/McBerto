@@ -86,7 +86,9 @@ new #[Layout('layouts.app')] class extends Component
                         <select wire:model.live="product_id" id="product_id" class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 rounded-md shadow-sm mt-1 block w-full">
                             <option value="">-- Choisir --</option>
                             @foreach ($this->products() as $product)
-                                <option value="{{ $product->id }}">{{ $product->name }}</option>
+                                <option value="{{ $product->id }}">
+                                    {{ $product->name }} - {{ $product->service_area->label() }}
+                                </option>
                             @endforeach
                         </select>
                         <x-input-error :messages="$errors->get('product_id')" class="mt-2" />
@@ -119,7 +121,9 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap justify-between gap-3">
                     <div>
                         <h3 class="font-medium text-gray-900 dark:text-gray-100">{{ $selected->name }}</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Prix: {{ number_format($selected->price, 0, ',', ' ') }} FCFA</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            {{ $selected->service_area->label() }} · Prix: {{ number_format($selected->price, 0, ',', ' ') }} FCFA
+                        </p>
                     </div>
                     @php($cost = $this->productCost($selected))
                     <div class="text-sm text-gray-700 dark:text-gray-300">

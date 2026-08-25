@@ -128,6 +128,50 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function exportProducts()
+    {
+        $filename = 'produits-mcberto-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function (): void {
+            $handle = fopen('php://output', 'w');
+
+            if ($handle === false) {
+                return;
+            }
+
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, [
+                'ID',
+                'Nom',
+                'Emoji',
+                'Catégorie',
+                'Zone',
+                'Prix FCFA',
+                'Statut',
+                'Créé le',
+            ], ';');
+
+            $this->filteredProductsQuery()
+                ->get()
+                ->each(function (Product $product) use ($handle): void {
+                    fputcsv($handle, [
+                        $product->id,
+                        $product->name,
+                        $product->emoji,
+                        $product->category?->name,
+                        $product->service_area->label(),
+                        $product->price,
+                        $product->is_active ? 'Actif' : 'Inactif',
+                        $product->created_at?->format('d/m/Y H:i'),
+                    ], ';');
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     public function pickEmoji(string $emoji): void
     {
         $this->emoji = $emoji;
@@ -237,15 +281,27 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Catalogue standard et VIP utilisé par la caisse.</p>
             </div>
 
-            <button
-                type="button"
-                x-on:click="$store.confirmModal.open('Désactiver tous les produits ? Ils ne seront plus visibles à la caisse, mais resteront dans le catalogue pour être réactivés plus tard.', () => $wire.deactivateAll())"
-                wire:loading.attr="disabled"
-                wire:target="deactivateAll"
-                class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
-                Désactiver tous les produits
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    wire:click="exportProducts"
+                    wire:loading.attr="disabled"
+                    wire:target="exportProducts"
+                    class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                    Exporter CSV
+                </button>
+
+                <button
+                    type="button"
+                    x-on:click="$store.confirmModal.open('Désactiver tous les produits ? Ils ne seront plus visibles à la caisse, mais resteront dans le catalogue pour être réactivés plus tard.', () => $wire.deactivateAll())"
+                    wire:loading.attr="disabled"
+                    wire:target="deactivateAll"
+                    class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                    Désactiver tous les produits
+                </button>
+            </div>
         </div>
 
         @if ($notice)

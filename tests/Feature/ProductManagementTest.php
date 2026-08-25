@@ -317,4 +317,33 @@ class ProductManagementTest extends TestCase
             ->assertSee('Produit actif')
             ->assertDontSee('Produit inactif');
     }
+
+    public function test_manager_can_export_filtered_products(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $burgers = Category::factory()->create(['name' => 'Burgers']);
+        $drinks = Category::factory()->create(['name' => 'Boissons']);
+
+        Product::factory()->create([
+            'name' => 'Berto Beef Export',
+            'category_id' => $burgers->id,
+            'service_area' => ServiceArea::Standard,
+            'price' => 2500,
+            'is_active' => true,
+        ]);
+
+        Product::factory()->create([
+            'name' => 'Jus Export',
+            'category_id' => $drinks->id,
+            'service_area' => ServiceArea::Standard,
+            'price' => 1000,
+            'is_active' => true,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('products.index')
+            ->set('filterCategoryId', (string) $burgers->id)
+            ->call('exportProducts')
+            ->assertFileDownloaded();
+    }
 }
