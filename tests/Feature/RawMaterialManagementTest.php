@@ -240,38 +240,52 @@ class RawMaterialManagementTest extends TestCase
         $this->assertDatabaseCount('raw_material_stock_movements', 0);
     }
 
-    public function test_manager_can_suspend_and_reactivate_a_product_recipe(): void
+    public function test_manager_can_suspend_and_reactivate_a_mounted_product_recipe(): void
     {
         $manager = User::factory()->manager()->create();
         $product = Product::factory()->create(['name' => 'Burger recette']);
-        $material = RawMaterial::create([
+        $firstMaterial = RawMaterial::create([
             'name' => 'Pain',
             'unit' => 'piece',
             'current_quantity' => 1,
             'low_stock_threshold' => 1,
             'average_unit_cost' => 100,
         ]);
-        $recipe = ProductRecipe::create([
+        $secondMaterial = RawMaterial::create([
+            'name' => 'Sauce',
+            'unit' => 'ml',
+            'current_quantity' => 10,
+            'low_stock_threshold' => 1,
+            'average_unit_cost' => 5,
+        ]);
+        $firstRecipe = ProductRecipe::create([
             'product_id' => $product->id,
-            'raw_material_id' => $material->id,
+            'raw_material_id' => $firstMaterial->id,
             'quantity' => 1,
+        ]);
+        $secondRecipe = ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $secondMaterial->id,
+            'quantity' => 5,
         ]);
 
         Livewire::actingAs($manager)
             ->test('product-recipes.index')
-            ->call('toggleRecipe', $recipe->id)
+            ->call('toggleProductRecipe', $product->id)
             ->assertSee('Recette suspendue')
             ->assertSee('Suspendue');
 
-        $this->assertFalse($recipe->fresh()->is_active);
+        $this->assertFalse($firstRecipe->fresh()->is_active);
+        $this->assertFalse($secondRecipe->fresh()->is_active);
 
         Livewire::actingAs($manager)
             ->test('product-recipes.index')
-            ->call('toggleRecipe', $recipe->id)
+            ->call('toggleProductRecipe', $product->id)
             ->assertSee('Recette réactivée')
             ->assertSee('Active');
 
-        $this->assertTrue($recipe->fresh()->is_active);
+        $this->assertTrue($firstRecipe->fresh()->is_active);
+        $this->assertTrue($secondRecipe->fresh()->is_active);
     }
 
     public function test_suspended_recipe_does_not_block_sale_when_raw_material_stock_is_insufficient(): void

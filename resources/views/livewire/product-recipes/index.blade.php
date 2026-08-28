@@ -70,14 +70,15 @@ new #[Layout('layouts.app')] class extends Component
         $this->notice = 'Ligne supprimée.';
     }
 
-    public function toggleRecipe(int $id): void
+    public function toggleProductRecipe(int $productId): void
     {
-        $recipe = ProductRecipe::findOrFail($id);
-        $recipe->update(['is_active' => ! $recipe->is_active]);
+        $product = Product::with('recipes')->findOrFail($productId);
+        $hasActiveRecipe = $product->recipes->contains(fn (ProductRecipe $recipe) => $recipe->is_active);
+        $product->recipes()->update(['is_active' => ! $hasActiveRecipe]);
 
-        $this->notice = $recipe->is_active
-            ? 'Recette réactivée. Le stock sera de nouveau déduit lors des ventes.'
-            : 'Recette suspendue. Les ventes de ce produit ne consommeront plus cette matière.';
+        $this->notice = $hasActiveRecipe
+            ? 'Recette suspendue. Les ventes de ce produit ne consommeront plus de matières.'
+            : 'Recette réactivée. Le stock sera de nouveau déduit lors des ventes.';
     }
 
     public function productCost(Product $product): int
@@ -158,35 +159,21 @@ new #[Layout('layouts.app')] class extends Component
                                 <th class="px-6 py-3">Matière</th>
                                 <th class="px-6 py-3">Quantité</th>
                                 <th class="px-6 py-3">Coût estimé</th>
-                                <th class="px-6 py-3">Statut</th>
                                 <th class="px-6 py-3"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                             @forelse ($selected->recipes as $recipe)
-                                <tr wire:key="recipe-{{ $recipe->id }}" class="{{ $recipe->is_active ? '' : 'bg-amber-50 dark:bg-amber-900/20' }}">
+                                <tr wire:key="recipe-{{ $recipe->id }}">
                                     <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $recipe->rawMaterial->name }}</td>
                                     <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format((float) $recipe->quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$recipe->rawMaterial->unit] }}</td>
-                                    <td class="px-6 py-3 text-gray-600 dark:text-gray-400">
-                                        {{ $recipe->is_active ? number_format((float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost, 0, ',', ' ').' FCFA' : 'Suspendu' }}
-                                    </td>
-                                    <td class="px-6 py-3">
-                                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $recipe->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' }}">
-                                            {{ $recipe->is_active ? 'Active' : 'Suspendue' }}
-                                        </span>
-                                    </td>
+                                    <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format((float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost, 0, ',', ' ') }} FCFA</td>
                                     <td class="px-6 py-3 text-right">
-                                        <div class="flex flex-wrap justify-end gap-2">
-                                            <button
-                                                wire:click="toggleRecipe({{ $recipe->id }})"
-                                                class="inline-flex items-center rounded-md border {{ $recipe->is_active ? 'border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-200' : 'border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-200' }} px-2.5 py-1 text-xs font-medium dark:hover:bg-gray-700"
-                                            >{{ $recipe->is_active ? 'Suspendre' : 'Réactiver' }}</button>
-                                            <button x-on:click="$store.confirmModal.open('Supprimer cette matière de la recette ?', () => $wire.remove({{ $recipe->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
-                                        </div>
+                                        <button x-on:click="$store.confirmModal.open('Supprimer cette matière de la recette ?', () => $wire.remove({{ $recipe->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière définie pour ce produit.</td></tr>
+                                <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière définie pour ce produit.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -208,12 +195,15 @@ new #[Layout('layouts.app')] class extends Component
                             <th class="px-6 py-3">Matières</th>
                             <th class="px-6 py-3">Coût matière</th>
                             <th class="px-6 py-3">Marge estimée</th>
+                            <th class="px-6 py-3">Statut</th>
+                            <th class="px-6 py-3"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         @forelse ($this->mountedRecipes() as $product)
                             @php($cost = $this->productCost($product))
-                            <tr wire:key="mounted-recipe-{{ $product->id }}" class="align-top hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            @php($recipeIsActive = $product->recipes->contains(fn ($recipe) => $recipe->is_active))
+                            <tr wire:key="mounted-recipe-{{ $product->id }}" class="align-top hover:bg-gray-50 dark:hover:bg-gray-700/40 {{ $recipeIsActive ? '' : 'bg-amber-50 dark:bg-amber-900/20' }}">
                                 <td class="px-6 py-4 text-sm">
                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ $product->name }}</div>
                                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -223,11 +213,8 @@ new #[Layout('layouts.app')] class extends Component
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                                     <div class="flex flex-wrap gap-2">
                                         @foreach ($product->recipes as $recipe)
-                                            <span class="inline-flex rounded-full px-2 py-1 text-xs {{ $recipe->is_active ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' }}">
+                                            <span class="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
                                                 {{ $recipe->rawMaterial->name }}: {{ number_format((float) $recipe->quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$recipe->rawMaterial->unit] }}
-                                                @unless ($recipe->is_active)
-                                                    · suspendue
-                                                @endunless
                                             </span>
                                         @endforeach
                                     </div>
@@ -236,10 +223,21 @@ new #[Layout('layouts.app')] class extends Component
                                 <td class="px-6 py-4 text-sm font-medium {{ $product->price - $cost >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
                                     {{ number_format($product->price - $cost, 0, ',', ' ') }} FCFA
                                 </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $recipeIsActive ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' }}">
+                                        {{ $recipeIsActive ? 'Active' : 'Suspendue' }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button
+                                        wire:click="toggleProductRecipe({{ $product->id }})"
+                                        class="inline-flex items-center rounded-md border {{ $recipeIsActive ? 'border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-200' : 'border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-200' }} px-2.5 py-1 text-xs font-medium dark:hover:bg-gray-700"
+                                    >{{ $recipeIsActive ? 'Suspendre' : 'Réactiver' }}</button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune recette montée pour le moment.</td>
+                                <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune recette montée pour le moment.</td>
                             </tr>
                         @endforelse
                     </tbody>
