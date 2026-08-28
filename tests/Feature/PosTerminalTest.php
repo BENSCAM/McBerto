@@ -108,6 +108,37 @@ class PosTerminalTest extends TestCase
         ]);
     }
 
+    public function test_cashier_can_complete_a_high_value_client_side_cart_sale(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create(['category_id' => $category->id, 'price' => 3_000_000_000]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ], 'cash', 3_000_000_000, 0)
+            ->assertSet('lastSaleReceipt.total', 3_000_000_000)
+            ->assertSet('lastSaleReceipt.amount_given', 3_000_000_000)
+            ->assertSet('lastSaleReceipt.change_due', 0);
+
+        $this->assertDatabaseHas('sales', [
+            'user_id' => $cashier->id,
+            'payment_method' => 'cash',
+            'total_amount' => 3_000_000_000,
+            'amount_given' => 3_000_000_000,
+            'change_due' => 0,
+        ]);
+
+        $this->assertDatabaseHas('sale_items', [
+            'product_id' => $product->id,
+            'unit_price' => 3_000_000_000,
+            'quantity' => 1,
+            'subtotal' => 3_000_000_000,
+        ]);
+    }
+
     public function test_manager_can_record_a_client_side_sale_for_yesterday(): void
     {
         $manager = User::factory()->manager()->create();

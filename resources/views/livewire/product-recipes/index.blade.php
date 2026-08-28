@@ -57,6 +57,7 @@ new #[Layout('layouts.app')] class extends Component
             'raw_material_id' => (int) $this->raw_material_id,
         ], [
             'quantity' => (float) $this->quantity,
+            'is_active' => true,
         ]);
 
         $this->reset(['raw_material_id', 'quantity']);
@@ -67,6 +68,16 @@ new #[Layout('layouts.app')] class extends Component
     {
         ProductRecipe::findOrFail($id)->delete();
         $this->notice = 'Ligne supprimée.';
+    }
+
+    public function toggleRecipe(int $id): void
+    {
+        $recipe = ProductRecipe::findOrFail($id);
+        $recipe->update(['is_active' => ! $recipe->is_active]);
+
+        $this->notice = $recipe->is_active
+            ? 'Recette réactivée. Le stock sera de nouveau déduit lors des ventes.'
+            : 'Recette suspendue. Les ventes de ce produit ne consommeront plus cette matière.';
     }
 
     public function productCost(Product $product): int
@@ -147,21 +158,35 @@ new #[Layout('layouts.app')] class extends Component
                                 <th class="px-6 py-3">Matière</th>
                                 <th class="px-6 py-3">Quantité</th>
                                 <th class="px-6 py-3">Coût estimé</th>
+                                <th class="px-6 py-3">Statut</th>
                                 <th class="px-6 py-3"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                             @forelse ($selected->recipes as $recipe)
-                                <tr wire:key="recipe-{{ $recipe->id }}">
+                                <tr wire:key="recipe-{{ $recipe->id }}" class="{{ $recipe->is_active ? '' : 'bg-amber-50 dark:bg-amber-900/20' }}">
                                     <td class="px-6 py-3 text-gray-900 dark:text-gray-100">{{ $recipe->rawMaterial->name }}</td>
                                     <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format((float) $recipe->quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$recipe->rawMaterial->unit] }}</td>
-                                    <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format((float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost, 0, ',', ' ') }} FCFA</td>
+                                    <td class="px-6 py-3 text-gray-600 dark:text-gray-400">
+                                        {{ $recipe->is_active ? number_format((float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost, 0, ',', ' ').' FCFA' : 'Suspendu' }}
+                                    </td>
+                                    <td class="px-6 py-3">
+                                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $recipe->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' }}">
+                                            {{ $recipe->is_active ? 'Active' : 'Suspendue' }}
+                                        </span>
+                                    </td>
                                     <td class="px-6 py-3 text-right">
-                                        <button x-on:click="$store.confirmModal.open('Supprimer cette matière de la recette ?', () => $wire.remove({{ $recipe->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
+                                        <div class="flex flex-wrap justify-end gap-2">
+                                            <button
+                                                wire:click="toggleRecipe({{ $recipe->id }})"
+                                                class="inline-flex items-center rounded-md border {{ $recipe->is_active ? 'border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-200' : 'border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-200' }} px-2.5 py-1 text-xs font-medium dark:hover:bg-gray-700"
+                                            >{{ $recipe->is_active ? 'Suspendre' : 'Réactiver' }}</button>
+                                            <button x-on:click="$store.confirmModal.open('Supprimer cette matière de la recette ?', () => $wire.remove({{ $recipe->id }}))" class="inline-flex items-center rounded-md border border-red-200 dark:border-red-800 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-gray-700">Supprimer</button>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière définie pour ce produit.</td></tr>
+                                <tr><td colspan="5" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière définie pour ce produit.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -198,8 +223,11 @@ new #[Layout('layouts.app')] class extends Component
                                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                                     <div class="flex flex-wrap gap-2">
                                         @foreach ($product->recipes as $recipe)
-                                            <span class="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                            <span class="inline-flex rounded-full px-2 py-1 text-xs {{ $recipe->is_active ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100' }}">
                                                 {{ $recipe->rawMaterial->name }}: {{ number_format((float) $recipe->quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$recipe->rawMaterial->unit] }}
+                                                @unless ($recipe->is_active)
+                                                    · suspendue
+                                                @endunless
                                             </span>
                                         @endforeach
                                     </div>

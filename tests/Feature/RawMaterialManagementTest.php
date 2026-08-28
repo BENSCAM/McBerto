@@ -240,6 +240,72 @@ class RawMaterialManagementTest extends TestCase
         $this->assertDatabaseCount('raw_material_stock_movements', 0);
     }
 
+    public function test_manager_can_suspend_and_reactivate_a_product_recipe(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create(['name' => 'Burger recette']);
+        $material = RawMaterial::create([
+            'name' => 'Pain',
+            'unit' => 'piece',
+            'current_quantity' => 1,
+            'low_stock_threshold' => 1,
+            'average_unit_cost' => 100,
+        ]);
+        $recipe = ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $material->id,
+            'quantity' => 1,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test('product-recipes.index')
+            ->call('toggleRecipe', $recipe->id)
+            ->assertSee('Recette suspendue')
+            ->assertSee('Suspendue');
+
+        $this->assertFalse($recipe->fresh()->is_active);
+
+        Livewire::actingAs($manager)
+            ->test('product-recipes.index')
+            ->call('toggleRecipe', $recipe->id)
+            ->assertSee('Recette réactivée')
+            ->assertSee('Active');
+
+        $this->assertTrue($recipe->fresh()->is_active);
+    }
+
+    public function test_suspended_recipe_does_not_block_sale_when_raw_material_stock_is_insufficient(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['price' => 1500]);
+        $material = RawMaterial::create([
+            'name' => 'Emballage',
+            'unit' => 'piece',
+            'current_quantity' => 1,
+            'low_stock_threshold' => 1,
+            'average_unit_cost' => 50,
+        ]);
+        ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $material->id,
+            'quantity' => 1,
+            'is_active' => false,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ], 'cash', 3000, 0)
+            ->assertSet('lastSaleReceipt.total', 3000);
+
+        $this->assertDatabaseHas('sales', [
+            'total_amount' => 3000,
+        ]);
+        $this->assertSame(1.0, (float) $material->fresh()->current_quantity);
+        $this->assertDatabaseCount('raw_material_stock_movements', 0);
+    }
+
     public function test_manager_can_record_manual_stock_loss(): void
     {
         $manager = User::factory()->manager()->create();

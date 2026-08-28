@@ -14,12 +14,14 @@ class ProductRecipe extends Model
         'product_id',
         'raw_material_id',
         'quantity',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
             'quantity' => 'decimal:3',
+            'is_active' => 'boolean',
         ];
     }
 

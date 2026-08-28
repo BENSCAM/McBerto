@@ -93,6 +93,10 @@ class RawMaterialStockService
             }
 
             foreach ($product->recipes as $recipe) {
+                if (! $recipe->is_active) {
+                    continue;
+                }
+
                 $material = $materials->get($recipe->raw_material_id);
                 $quantityOut = (float) $recipe->quantity * (int) $saleItem->quantity;
                 $stockBefore = (float) $material->current_quantity;
@@ -210,7 +214,9 @@ class RawMaterialStockService
         $product->loadMissing('recipes.rawMaterial');
 
         return (int) round($product->recipes->sum(
-            fn ($recipe) => (float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost
+            fn ($recipe) => $recipe->is_active
+                ? (float) $recipe->quantity * (float) $recipe->rawMaterial->average_unit_cost
+                : 0
         ));
     }
 
@@ -218,11 +224,17 @@ class RawMaterialStockService
     {
         return $sale->items
             ->flatMap(function ($saleItem) {
-                return $saleItem->product?->recipes->map(fn ($recipe) => [
-                    'raw_material_id' => $recipe->raw_material_id,
-                    'name' => $recipe->rawMaterial->name,
-                    'quantity' => (float) $recipe->quantity * (int) $saleItem->quantity,
-                ]) ?? collect();
+                if (! $saleItem->product) {
+                    return collect();
+                }
+
+                return $saleItem->product->recipes
+                    ->where('is_active', true)
+                    ->map(fn ($recipe) => [
+                        'raw_material_id' => $recipe->raw_material_id,
+                        'name' => $recipe->rawMaterial->name,
+                        'quantity' => (float) $recipe->quantity * (int) $saleItem->quantity,
+                    ]);
             })
             ->groupBy('raw_material_id')
             ->map(fn (Collection $rows) => [
