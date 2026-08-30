@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Sale;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -35,7 +34,7 @@ class OrderHistoryPdfController extends Controller
             ? 'historique-commandes-'.$start->format('Ymd').'.pdf'
             : 'historique-commandes-'.$start->format('Ymd').'-'.$end->format('Ymd').'.pdf';
 
-        return Pdf::loadView('reports.pdf.order-history', [
+        return app('dompdf.wrapper')->loadView('reports.pdf.order-history', [
             'sales' => $sales,
             'start' => $start,
             'end' => $end,
