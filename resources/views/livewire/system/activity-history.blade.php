@@ -64,6 +64,34 @@
                 </div>
             </div>
 
+            <div class="mb-4 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label for="exportStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Exporter du</label>
+                        <input
+                            id="exportStartDate"
+                            type="date"
+                            wire:model.live="exportStartDate"
+                            class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                        >
+                    </div>
+                    <div>
+                        <label for="exportEndDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Au</label>
+                        <input
+                            id="exportEndDate"
+                            type="date"
+                            wire:model.live="exportEndDate"
+                            class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                        >
+                    </div>
+                    <a
+                        href="{{ $this->orderHistoryPdfUrl() }}"
+                        target="_blank"
+                        class="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                    >Exporter PDF</a>
+                </div>
+            </div>
+
             @if ($this->orderHistory->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">
                     {{ $orderDate !== '' ? 'Aucune commande enregistrée pour cette date.' : 'Aucun ticket enregistré.' }}

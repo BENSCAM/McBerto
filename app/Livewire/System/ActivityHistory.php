@@ -24,7 +24,17 @@ class ActivityHistory extends Component
 
     public string $orderDate = '';
 
+    public string $exportStartDate = '';
+
+    public string $exportEndDate = '';
+
     public ?int $selectedOrderId = null;
+
+    public function mount(): void
+    {
+        $this->exportStartDate = now()->toDateString();
+        $this->exportEndDate = now()->toDateString();
+    }
 
     public function updatedSearch(): void
     {
@@ -43,6 +53,11 @@ class ActivityHistory extends Component
 
     public function updatedOrderDate(): void
     {
+        if ($this->orderDate !== '') {
+            $this->exportStartDate = $this->orderDate;
+            $this->exportEndDate = $this->orderDate;
+        }
+
         unset($this->orderHistory);
         $this->selectedOrderId = null;
     }
@@ -58,6 +73,17 @@ class ActivityHistory extends Component
         $this->orderDate = '';
         $this->selectedOrderId = null;
         unset($this->orderHistory);
+    }
+
+    public function orderHistoryPdfUrl(): string
+    {
+        $startDate = $this->exportStartDate !== '' ? $this->exportStartDate : now()->toDateString();
+        $endDate = $this->exportEndDate !== '' ? $this->exportEndDate : $startDate;
+
+        return route('system.history.orders.pdf', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ]);
     }
 
     #[Computed]
@@ -78,7 +104,8 @@ class ActivityHistory extends Component
             }
         }
 
-        return $query->latest()
+        return $query->orderBy('created_at')
+            ->orderBy('id')
             ->limit($this->orderDate !== '' ? 100 : 20)
             ->get();
     }

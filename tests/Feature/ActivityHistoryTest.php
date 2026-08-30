@@ -219,12 +219,30 @@ class ActivityHistoryTest extends TestCase
         $cashier = User::factory()->cashier()->create(['name' => 'Caissier Date']);
         $category = Category::factory()->create();
         $burger = Product::factory()->create(['category_id' => $category->id, 'name' => 'Burger filtre']);
+        $firstTargetDate = now()->subDays(2)->setTime(9, 15);
         $targetDate = now()->subDays(2)->setTime(14, 30);
         $otherDate = now()->subDay()->setTime(10, 15);
 
+        $firstTargetSale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$firstTargetDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 1000,
+            'created_at' => $firstTargetDate,
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $firstTargetSale->id,
+            'product_id' => $burger->id,
+            'product_name' => 'Burger filtre matin',
+            'unit_price' => 1000,
+            'quantity' => 1,
+            'subtotal' => 1000,
+        ]);
+
         $targetSale = Sale::factory()->create([
             'user_id' => $cashier->id,
-            'receipt_number' => 'MCB-'.$targetDate->format('Ymd').'-0001',
+            'receipt_number' => 'MCB-'.$targetDate->format('Ymd').'-0002',
             'payment_method' => PaymentMethod::Cash,
             'total_amount' => 4500,
             'amount_given' => 5000,
@@ -252,7 +270,13 @@ class ActivityHistoryTest extends TestCase
         Livewire::actingAs($manager)
             ->test(ActivityHistory::class)
             ->set('orderDate', $targetDate->toDateString())
+            ->assertSet('exportStartDate', $targetDate->toDateString())
+            ->assertSet('exportEndDate', $targetDate->toDateString())
             ->assertSee('MCB-'.$targetDate->format('Ymd').'-0001')
+            ->assertSeeInOrder([
+                'MCB-'.$targetDate->format('Ymd').'-0001',
+                'MCB-'.$targetDate->format('Ymd').'-0002',
+            ])
             ->assertDontSee('MCB-'.$otherDate->format('Ymd').'-0001')
             ->call('viewOrderTicket', $targetSale->id)
             ->assertSee('Ticket détaillé')
@@ -261,5 +285,79 @@ class ActivityHistoryTest extends TestCase
             ->assertSee('500 FCFA')
             ->call('clearOrderDate')
             ->assertSet('orderDate', '');
+    }
+
+    public function test_manager_can_export_order_history_pdf_for_a_date_range(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Export']);
+        $category = Category::factory()->create();
+        $burger = Product::factory()->create(['category_id' => $category->id, 'name' => 'Burger PDF']);
+        $startDate = now()->subDays(3)->setTime(8, 30);
+        $endDate = now()->subDays(2)->setTime(16, 45);
+
+        $firstSale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$startDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 3000,
+            'amount_given' => 5000,
+            'change_due' => 2000,
+            'created_at' => $startDate,
+        ]);
+        SaleItem::create([
+            'sale_id' => $firstSale->id,
+            'product_id' => $burger->id,
+            'product_name' => 'Burger PDF matin',
+            'unit_price' => 1500,
+            'quantity' => 2,
+            'subtotal' => 3000,
+        ]);
+
+        $secondSale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$endDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::OrangeMoney,
+            'total_amount' => 1500,
+            'created_at' => $endDate,
+        ]);
+        SaleItem::create([
+            'sale_id' => $secondSale->id,
+            'product_id' => $burger->id,
+            'product_name' => 'Burger PDF soir',
+            'unit_price' => 1500,
+            'quantity' => 1,
+            'subtotal' => 1500,
+        ]);
+
+        $outsideDate = now()->subDay()->setTime(12, 0);
+        Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$outsideDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 999,
+            'created_at' => $outsideDate,
+        ]);
+
+        $response = $this->actingAs($manager)->get(route('system.history.orders.pdf', [
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    public function test_order_history_pdf_rejects_an_invalid_date_range(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        $this->actingAs($manager)
+            ->get(route('system.history.orders.pdf', [
+                'start_date' => now()->toDateString(),
+                'end_date' => now()->subDay()->toDateString(),
+            ]))
+            ->assertStatus(422);
     }
 }

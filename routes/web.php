@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Pos\OfflineSaleSyncController;
 use App\Http\Controllers\Reports\ManagementReportPdfController;
+use App\Http\Controllers\Reports\OrderHistoryPdfController;
 use App\Livewire\Admin\UserManagement;
 use App\Livewire\Dashboard\Overview;
 use App\Livewire\Hr\Attendance;
@@ -41,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
         Volt::route('/expenses', 'expenses.index')->name('expenses.index');
         Route::get('/pos/cloture/historique', ClosingHistory::class)->name('pos.closing.history');
         Route::get('/system/history', ActivityHistory::class)->name('system.history');
+        Route::get('/system/history/orders/pdf', OrderHistoryPdfController::class)->name('system.history.orders.pdf');
         Route::get('/system/bugs', BugHistory::class)->name('system.bugs');
         Route::get('/users', UserManagement::class)->name('users.index');
         Route::get('/hr/presence', Attendance::class)->name('hr.attendance');
