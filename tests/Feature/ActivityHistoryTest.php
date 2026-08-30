@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\PaymentMethod;
+use App\Livewire\Pos\Terminal;
 use App\Livewire\System\ActivityHistory;
 use App\Models\ActivityLog;
+use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductRecipe;
+use App\Models\RawMaterial;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\User;
@@ -139,7 +143,8 @@ class ActivityHistoryTest extends TestCase
             ->assertSee('MCB-20260814-0001')
             ->assertSee('Caissier Test')
             ->assertSee('3 000 FCFA')
-            ->assertSee('Voir');
+            ->assertSee('Voir')
+            ->assertSee('Supprimer');
     }
 
     public function test_activity_history_shows_sale_date_for_sale_item_logs(): void
@@ -359,5 +364,63 @@ class ActivityHistoryTest extends TestCase
                 'end_date' => now()->subDay()->toDateString(),
             ]))
             ->assertStatus(422);
+    }
+
+    public function test_manager_can_delete_duplicate_order_from_activity_history_and_restore_stock(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $manager = User::factory()->manager()->create();
+        $category = Category::factory()->create();
+        $product = Product::factory()->create([
+            'category_id' => $category->id,
+            'name' => 'Commande doublon',
+            'price' => 1500,
+        ]);
+        $material = RawMaterial::create([
+            'name' => 'Emballage doublon',
+            'unit' => 'piece',
+            'current_quantity' => 5,
+            'low_stock_threshold' => 1,
+            'average_unit_cost' => 50,
+        ]);
+        ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $material->id,
+            'quantity' => 1,
+        ]);
+
+        Livewire::actingAs($cashier)
+            ->test(Terminal::class)
+            ->call('completeClientSale', [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ], 'cash', 3000, 0);
+
+        $sale = Sale::firstOrFail();
+        $closing = CashRegisterClosing::factory()->create([
+            'total_cash' => 3000,
+            'counted_cash' => 3000,
+            'variance' => 0,
+            'total_amount' => 3000,
+            'total_orders_count' => 1,
+        ]);
+        $sale->update(['cash_register_closing_id' => $closing->id]);
+
+        $this->assertSame(3.0, (float) $material->fresh()->current_quantity);
+
+        $component = Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->call('deleteOrder', $sale->id)
+            ->assertSet('orderNotice', 'Commande supprimée.');
+
+        $this->assertDatabaseMissing('sales', ['id' => $sale->id]);
+        $this->assertDatabaseMissing('sale_items', ['sale_id' => $sale->id]);
+        $this->assertFalse($component->instance()->orderHistory()->contains('id', $sale->id));
+        $this->assertSame(5.0, (float) $material->fresh()->current_quantity);
+
+        $closing->refresh();
+        $this->assertSame(0, $closing->total_cash);
+        $this->assertSame(0, $closing->total_amount);
+        $this->assertSame(0, $closing->total_orders_count);
+        $this->assertSame(3000, $closing->variance);
     }
 }

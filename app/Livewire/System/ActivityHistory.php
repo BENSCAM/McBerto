@@ -2,11 +2,15 @@
 
 namespace App\Livewire\System;
 
+use App\Enums\PaymentMethod;
 use App\Models\ActivityLog;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\User;
+use App\Services\RawMaterialStockService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -29,6 +33,8 @@ class ActivityHistory extends Component
     public string $exportEndDate = '';
 
     public ?int $selectedOrderId = null;
+
+    public ?string $orderNotice = null;
 
     public function mount(): void
     {
@@ -127,9 +133,65 @@ class ActivityHistory extends Component
         $this->selectedOrderId = $saleId;
     }
 
+    public function deleteOrder(int $saleId): void
+    {
+        $sale = Sale::completed()
+            ->with(['closing', 'items'])
+            ->findOrFail($saleId);
+
+        DB::transaction(function () use ($sale) {
+            app(RawMaterialStockService::class)->restoreForCanceledSale($sale, Auth::user());
+            $this->adjustClosingAfterDeletedSale($sale);
+            $sale->delete();
+        });
+
+        if ($this->selectedOrderId === $saleId) {
+            $this->selectedOrderId = null;
+        }
+
+        $this->orderNotice = 'Commande supprimée.';
+        unset($this->orderHistory, $this->selectedOrderTicket);
+    }
+
     public function closeOrderTicket(): void
     {
         $this->selectedOrderId = null;
+    }
+
+    private function adjustClosingAfterDeletedSale(Sale $sale): void
+    {
+        $closing = $sale->closing;
+
+        if (! $closing) {
+            return;
+        }
+
+        $paymentColumn = match ($sale->payment_method) {
+            PaymentMethod::Cash => 'total_cash',
+            PaymentMethod::OrangeMoney => 'total_orange_money',
+            PaymentMethod::MtnMomo => 'total_mtn_momo',
+            PaymentMethod::Other => 'total_other',
+        };
+
+        $nextPaymentTotal = max(0, (int) $closing->{$paymentColumn} - (int) $sale->total_amount);
+        $nextTotal = max(0, (int) $closing->total_amount - (int) $sale->total_amount);
+        $nextOrdersCount = max(0, (int) $closing->total_orders_count - 1);
+
+        $data = [
+            $paymentColumn => $nextPaymentTotal,
+            'total_amount' => $nextTotal,
+            'total_orders_count' => $nextOrdersCount,
+        ];
+
+        if ($closing->counted_cash !== null) {
+            $nextCashTotal = $paymentColumn === 'total_cash'
+                ? $nextPaymentTotal
+                : (int) $closing->total_cash;
+
+            $data['variance'] = (int) $closing->counted_cash - $nextCashTotal;
+        }
+
+        $closing->update($data);
     }
 
     public function formatActivityValue(mixed $value): string

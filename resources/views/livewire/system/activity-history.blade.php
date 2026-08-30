@@ -92,6 +92,12 @@
                 </div>
             </div>
 
+            @if ($orderNotice)
+                <div class="mb-4 rounded-md bg-blue-50 dark:bg-blue-900 px-3 py-2 text-sm text-blue-800 dark:text-blue-100">
+                    {{ $orderNotice }}
+                </div>
+            @endif
+
             @if ($this->orderHistory->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">
                     {{ $orderDate !== '' ? 'Aucune commande enregistrée pour cette date.' : 'Aucun ticket enregistré.' }}
@@ -120,11 +126,18 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100 text-right whitespace-nowrap">{{ number_format($sale->total_amount, 0, ',', ' ') }} FCFA</td>
                                     <td class="px-4 py-3 text-right">
-                                        <button
-                                            type="button"
-                                            wire:click="viewOrderTicket({{ $sale->id }})"
-                                            class="inline-flex items-center rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                                        >Voir</button>
+                                        <div class="flex justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                wire:click="viewOrderTicket({{ $sale->id }})"
+                                                class="inline-flex items-center rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                                            >Voir</button>
+                                            <button
+                                                type="button"
+                                                x-on:click="$store.confirmModal.open('Supprimer cette commande ? Cette action restaure le stock consommé et retire la commande de l’historique.', () => $wire.deleteOrder({{ $sale->id }}))"
+                                                class="inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-gray-700"
+                                            >Supprimer</button>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
