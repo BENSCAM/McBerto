@@ -49,11 +49,25 @@
                     <h3 class="font-medium text-gray-800 dark:text-gray-200">Tickets de caisse</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dernières commandes enregistrées avec accès au ticket détaillé.</p>
                 </div>
-                <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $this->orderHistory->count() }} ticket(s)</span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <label for="orderDate" class="text-sm font-medium text-gray-600 dark:text-gray-300">Date</label>
+                    <input
+                        id="orderDate"
+                        type="date"
+                        wire:model.live="orderDate"
+                        class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                    >
+                    @if ($orderDate !== '')
+                        <button type="button" wire:click="clearOrderDate" class="text-sm text-brand-600 dark:text-brand-400 underline">Toutes</button>
+                    @endif
+                    <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $this->orderHistory->count() }} ticket(s)</span>
+                </div>
             </div>
 
             @if ($this->orderHistory->isEmpty())
-                <p class="text-sm text-gray-500 dark:text-gray-400">Aucun ticket enregistré.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ $orderDate !== '' ? 'Aucune commande enregistrée pour cette date.' : 'Aucun ticket enregistré.' }}
+                </p>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">

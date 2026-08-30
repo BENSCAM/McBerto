@@ -22,6 +22,8 @@ class ActivityHistory extends Component
 
     public string $userId = '';
 
+    public string $orderDate = '';
+
     public ?int $selectedOrderId = null;
 
     public function updatedSearch(): void
@@ -39,19 +41,45 @@ class ActivityHistory extends Component
         $this->resetPage();
     }
 
+    public function updatedOrderDate(): void
+    {
+        unset($this->orderHistory);
+        $this->selectedOrderId = null;
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'action', 'userId']);
         $this->resetPage();
     }
 
+    public function clearOrderDate(): void
+    {
+        $this->orderDate = '';
+        $this->selectedOrderId = null;
+        unset($this->orderHistory);
+    }
+
     #[Computed]
     public function orderHistory()
     {
-        return Sale::completed()
-            ->with(['items' => fn ($query) => $query->orderBy('id'), 'user'])
-            ->latest()
-            ->limit(20)
+        $query = Sale::completed()
+            ->with(['items' => fn ($query) => $query->orderBy('id'), 'user']);
+
+        if ($this->orderDate !== '') {
+            try {
+                $date = Carbon::createFromFormat('Y-m-d', $this->orderDate);
+
+                if ($date->format('Y-m-d') === $this->orderDate) {
+                    $query->whereDate('created_at', $date);
+                }
+            } catch (\Throwable) {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        return $query->latest()
+            ->limit($this->orderDate !== '' ? 100 : 20)
             ->get();
     }
 

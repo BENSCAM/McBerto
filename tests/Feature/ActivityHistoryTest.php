@@ -212,4 +212,54 @@ class ActivityHistoryTest extends TestCase
             ->assertSet('selectedOrderId', null)
             ->assertDontSee('Ticket détaillé');
     }
+
+    public function test_manager_can_filter_order_tickets_by_date_and_view_contents(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create(['name' => 'Caissier Date']);
+        $category = Category::factory()->create();
+        $burger = Product::factory()->create(['category_id' => $category->id, 'name' => 'Burger filtre']);
+        $targetDate = now()->subDays(2)->setTime(14, 30);
+        $otherDate = now()->subDay()->setTime(10, 15);
+
+        $targetSale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$targetDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 4500,
+            'amount_given' => 5000,
+            'change_due' => 500,
+            'created_at' => $targetDate,
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $targetSale->id,
+            'product_id' => $burger->id,
+            'product_name' => 'Burger filtre',
+            'unit_price' => 1500,
+            'quantity' => 3,
+            'subtotal' => 4500,
+        ]);
+
+        Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$otherDate->format('Ymd').'-0001',
+            'payment_method' => PaymentMethod::Cash,
+            'total_amount' => 1000,
+            'created_at' => $otherDate,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->set('orderDate', $targetDate->toDateString())
+            ->assertSee('MCB-'.$targetDate->format('Ymd').'-0001')
+            ->assertDontSee('MCB-'.$otherDate->format('Ymd').'-0001')
+            ->call('viewOrderTicket', $targetSale->id)
+            ->assertSee('Ticket détaillé')
+            ->assertSee('3 x Burger filtre')
+            ->assertSee('4 500 FCFA')
+            ->assertSee('500 FCFA')
+            ->call('clearOrderDate')
+            ->assertSet('orderDate', '');
+    }
 }
