@@ -64,7 +64,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div class="py-8">
+<div class="py-8" wire:poll.visible.15s>
     <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Mouvements de stock</h2>

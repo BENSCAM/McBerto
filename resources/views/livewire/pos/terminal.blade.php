@@ -394,7 +394,7 @@
                 </div>
 
                 <!-- Recent sales -->
-                <div class="flex-1 min-h-[10rem] lg:min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col">
+                <div class="flex-1 min-h-[10rem] lg:min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col" wire:poll.visible.10s>
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-3 shrink-0">Ventes récentes du jour</h3>
 
                     @if ($this->recentSales->isEmpty())
