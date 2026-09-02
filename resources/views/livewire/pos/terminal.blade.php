@@ -394,7 +394,7 @@
                 </div>
 
                 <!-- Recent sales -->
-                <div class="flex-1 min-h-[10rem] lg:min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col" wire:poll.visible.10s>
+                <div class="flex-1 min-h-[10rem] lg:min-h-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col">
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-3 shrink-0">Ventes récentes du jour</h3>
 
                     @if ($this->recentSales->isEmpty())
@@ -497,9 +497,10 @@
                 <template x-if="onlineCheckoutMethod === 'cash'">
                     <div>
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">Paiement en espèces</h3>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                            Total à payer : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span>
-                        </p>
+                        <div class="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                            <p>Total à payer : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span></p>
+                            <p>Date de vente : <span class="font-semibold" x-text="formatDisplayDate(onlineSaleDate)"></span></p>
+                        </div>
 
                         <label for="onlineAmountGiven" class="block font-medium text-sm text-gray-700 dark:text-gray-300">Montant donné par le client</label>
                         <input
@@ -567,7 +568,10 @@
                 <template x-if="onlineCheckoutMethod !== 'cash'">
                     <div>
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">Mode de paiement</h3>
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">Total : <span x-text="formatMoney(onlineCartTotal())"></span></p>
+                        <div class="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                            <p>Total : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span></p>
+                            <p>Date de vente : <span class="font-semibold" x-text="formatDisplayDate(onlineSaleDate)"></span></p>
+                        </div>
 
                         <div class="space-y-2">
                             @foreach (\App\Enums\PaymentMethod::cases() as $method)
@@ -1043,22 +1047,32 @@
                 },
 
                 onlineChangeDue() {
-                    if (this.onlineAmountGiven === '' || Number.isNaN(Number(this.onlineAmountGiven))) {
+                    const amountGiven = this.moneyInputValue(this.onlineAmountGiven);
+
+                    if (this.onlineAmountGiven === '' || Number.isNaN(amountGiven)) {
                         return null;
                     }
 
-                    return Number(this.onlineAmountGiven) - this.onlineCartTotal();
+                    return amountGiven - this.onlineCartTotal();
                 },
 
                 async confirmOnlineSale(paymentMethod) {
                     if (this.onlineProcessing || this.onlineCartCount() === 0) return;
 
+                    if (!this.online || !navigator.onLine) {
+                        this.onlineError = 'Connexion interrompue. Vérifiez le réseau avant de confirmer la vente.';
+                        return;
+                    }
+
                     this.onlineError = '';
                     const total = this.onlineCartTotal();
-                    const amountGiven = paymentMethod === 'cash' ? Number(this.onlineAmountGiven || 0) : null;
+                    const amountGiven = paymentMethod === 'cash' ? this.moneyInputValue(this.onlineAmountGiven) : null;
                     const changeDue = paymentMethod === 'cash' ? amountGiven - total : null;
 
-                    if (paymentMethod === 'cash' && changeDue < 0) return;
+                    if (paymentMethod === 'cash' && (Number.isNaN(amountGiven) || changeDue < 0)) {
+                        this.onlineError = 'Le montant donné est insuffisant.';
+                        return;
+                    }
 
                     this.onlineProcessing = true;
 
@@ -1081,6 +1095,7 @@
                         this.onlineAmountGiven = '';
                         this.onlineError = '';
                     } catch (error) {
+                        console.error('Erreur encaissement', error);
                         this.onlineError = this.livewireErrorMessage(error) || 'Impossible d’enregistrer cette vente. Vérifiez la date, le montant et réessayez.';
                     } finally {
                         this.onlineProcessing = false;
@@ -1088,16 +1103,45 @@
                 },
 
                 livewireErrorMessage(error) {
-                    const errors = error?.response?.effects?.errors || error?.response?.serverMemo?.errors || error?.errors;
+                    const errors = error?.response?.effects?.errors
+                        || error?.response?.serverMemo?.errors
+                        || error?.response?.data?.errors
+                        || error?.errors;
 
                     if (errors && typeof errors === 'object') {
-                        const first = Object.values(errors)[0];
+                        const first = Object.values(errors).flat()[0];
 
                         if (Array.isArray(first)) return first[0];
                         if (typeof first === 'string') return first;
                     }
 
-                    return error?.message || '';
+                    const message = error?.response?.message
+                        || error?.response?.data?.message
+                        || error?.message
+                        || '';
+
+                    if (message.includes('stock')) {
+                        return message;
+                    }
+
+                    return message;
+                },
+
+                moneyInputValue(value) {
+                    if (value === null || value === undefined || value === '') {
+                        return Number.NaN;
+                    }
+
+                    if (typeof value === 'number') {
+                        return value;
+                    }
+
+                    const normalized = String(value)
+                        .replace(/\s/g, '')
+                        .replace(/[^\d.,-]/g, '')
+                        .replace(',', '.');
+
+                    return Number(normalized);
                 },
 
                 incrementOffline(productId) {
@@ -1451,6 +1495,16 @@
                     const value = Number(amount);
 
                     return `${Number.isFinite(value) ? value.toLocaleString('fr-FR') : '0'} FCFA`;
+                },
+
+                formatDisplayDate(value) {
+                    if (!value) return 'Aujourd’hui';
+
+                    const [year, month, day] = String(value).split('-');
+
+                    if (!year || !month || !day) return value;
+
+                    return `${day}/${month}/${year}`;
                 },
             };
         }

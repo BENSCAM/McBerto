@@ -142,7 +142,8 @@
 
                                 <button
                                     type="button"
-                                    x-on:click="$store.confirmModal.open('Supprimer définitivement les commandes de cette période ? Le stock consommé par ces ventes sera remis, et les clôtures de la période seront supprimées.', () => $wire.deleteOrdersForPeriod())"
+                                    wire:click="deleteOrdersForPeriod"
+                                    wire:confirm="Supprimer définitivement les commandes de cette période ? Le stock consommé par ces ventes sera remis, et les clôtures de la période seront supprimées."
                                     wire:loading.attr="disabled"
                                     wire:target="deleteOrdersForPeriod"
                                     class="mt-5 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
@@ -198,7 +199,8 @@
                                             >Voir</button>
                                             <button
                                                 type="button"
-                                                x-on:click="$store.confirmModal.open('Supprimer cette commande ? Cette action restaure le stock consommé et retire la commande de l’historique.', () => $wire.deleteOrder({{ $sale->id }}))"
+                                                wire:click="deleteOrder({{ $sale->id }})"
+                                                wire:confirm="Supprimer cette commande ? Cette action restaure le stock consommé et retire la commande de l'historique."
                                                 class="inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-gray-700"
                                             >Supprimer</button>
                                         </div>
