@@ -499,7 +499,7 @@
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-1">Paiement en espèces</h3>
                         <div class="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                             <p>Total à payer : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span></p>
-                            <p>Date de vente : <span class="font-semibold" x-text="formatDisplayDate(onlineSaleDate)"></span></p>
+                            <p>Date de vente : <span class="font-semibold" x-text="onlineSaleDate ? onlineSaleDate.split('-').reverse().join('/') : 'Aujourd’hui'"></span></p>
                         </div>
 
                         <label for="onlineAmountGiven" class="block font-medium text-sm text-gray-700 dark:text-gray-300">Montant donné par le client</label>
@@ -570,7 +570,7 @@
                         <h3 class="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">Mode de paiement</h3>
                         <div class="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                             <p>Total : <span class="font-semibold" x-text="formatMoney(onlineCartTotal())"></span></p>
-                            <p>Date de vente : <span class="font-semibold" x-text="formatDisplayDate(onlineSaleDate)"></span></p>
+                            <p>Date de vente : <span class="font-semibold" x-text="onlineSaleDate ? onlineSaleDate.split('-').reverse().join('/') : 'Aujourd’hui'"></span></p>
                         </div>
 
                         <div class="space-y-2">
@@ -1497,15 +1497,6 @@
                     return `${Number.isFinite(value) ? value.toLocaleString('fr-FR') : '0'} FCFA`;
                 },
 
-                formatDisplayDate(value) {
-                    if (!value) return 'Aujourd’hui';
-
-                    const [year, month, day] = String(value).split('-');
-
-                    if (!year || !month || !day) return value;
-
-                    return `${day}/${month}/${year}`;
-                },
             };
         }
     </script>
