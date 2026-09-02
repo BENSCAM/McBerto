@@ -44,23 +44,20 @@
         </div>
 
         <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-4">
-            <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
                     <h3 class="font-medium text-gray-800 dark:text-gray-200">Tickets de caisse</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dernières commandes enregistrées avec accès au ticket détaillé.</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Commandes enregistrées avec accès au ticket détaillé.</p>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <label for="orderDate" class="text-sm font-medium text-gray-600 dark:text-gray-300">Date</label>
-                    <input
-                        id="orderDate"
-                        type="date"
-                        wire:model.live="orderDate"
-                        class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
-                    >
-                    @if ($orderDate !== '')
-                        <button type="button" wire:click="clearOrderDate" class="text-sm text-brand-600 dark:text-brand-400 underline">Toutes</button>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    @if ($this->orderHistoryHasDateFilter())
+                        <span class="px-2 py-1 rounded-full bg-brand-50 text-brand-700 dark:bg-gray-700 dark:text-brand-300">
+                            {{ $exportStartDate !== '' ? \Illuminate\Support\Carbon::parse($exportStartDate)->format('d/m/Y') : 'Début' }}
+                            -
+                            {{ $exportEndDate !== '' ? \Illuminate\Support\Carbon::parse($exportEndDate)->format('d/m/Y') : 'Fin' }}
+                        </span>
                     @endif
-                    <span class="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $this->orderHistory->count() }} ticket(s)</span>
+                    <span class="px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{{ $this->orderHistory->count() }} ticket(s)</span>
                 </div>
             </div>
 
@@ -68,7 +65,7 @@
                 <div class="flex flex-wrap items-end justify-between gap-3">
                     <div class="flex flex-wrap items-end gap-3">
                         <div>
-                            <label for="exportStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Exporter du</label>
+                            <label for="exportStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Afficher du</label>
                             <input
                                 id="exportStartDate"
                                 type="date"
@@ -85,6 +82,18 @@
                                 class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
                             >
                         </div>
+                        <button
+                            type="button"
+                            wire:click="showTodayOrders"
+                            class="inline-flex items-center justify-center rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >Aujourd'hui</button>
+                        @if ($this->orderHistoryHasDateFilter())
+                            <button
+                                type="button"
+                                wire:click="clearOrderDate"
+                                class="inline-flex items-center justify-center rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >Toutes</button>
+                        @endif
                         <a
                             href="{{ $this->orderHistoryPdfUrl() }}"
                             target="_blank"
@@ -155,7 +164,7 @@
 
             @if ($this->orderHistory->isEmpty())
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ $orderDate !== '' ? 'Aucune commande enregistrée pour cette date.' : 'Aucun ticket enregistré.' }}
+                    {{ $this->orderHistoryHasDateFilter() ? 'Aucune commande enregistrée sur cette période.' : 'Aucun ticket enregistré.' }}
                 </p>
             @else
                 <div class="overflow-x-auto">

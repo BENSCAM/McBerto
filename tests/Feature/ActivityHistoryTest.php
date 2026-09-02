@@ -294,6 +294,36 @@ class ActivityHistoryTest extends TestCase
             ->assertSet('orderDate', '');
     }
 
+    public function test_manager_can_filter_order_tickets_by_display_period(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create();
+        $insideDate = now()->subDays(3)->setTime(11, 0);
+        $outsideDate = now()->subDay()->setTime(11, 0);
+
+        Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$insideDate->format('Ymd').'-0001',
+            'created_at' => $insideDate,
+        ]);
+
+        Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'receipt_number' => 'MCB-'.$outsideDate->format('Ymd').'-0001',
+            'created_at' => $outsideDate,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(ActivityHistory::class)
+            ->set('exportStartDate', $insideDate->toDateString())
+            ->set('exportEndDate', $insideDate->toDateString())
+            ->assertSee('MCB-'.$insideDate->format('Ymd').'-0001')
+            ->assertDontSee('MCB-'.$outsideDate->format('Ymd').'-0001')
+            ->call('clearOrderDate')
+            ->assertSet('exportStartDate', '')
+            ->assertSet('exportEndDate', '');
+    }
+
     public function test_manager_can_export_order_history_pdf_for_a_date_range(): void
     {
         $manager = User::factory()->manager()->create();

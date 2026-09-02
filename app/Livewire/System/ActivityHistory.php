@@ -78,6 +78,16 @@ class ActivityHistory extends Component
         $this->selectedOrderId = null;
     }
 
+    public function updatedExportStartDate(): void
+    {
+        $this->refreshOrderHistorySelection();
+    }
+
+    public function updatedExportEndDate(): void
+    {
+        $this->refreshOrderHistorySelection();
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'action', 'userId']);
@@ -87,6 +97,26 @@ class ActivityHistory extends Component
     public function clearOrderDate(): void
     {
         $this->orderDate = '';
+        $this->exportStartDate = '';
+        $this->exportEndDate = '';
+        $this->refreshOrderHistorySelection();
+    }
+
+    public function showTodayOrders(): void
+    {
+        $this->orderDate = now()->toDateString();
+        $this->exportStartDate = $this->orderDate;
+        $this->exportEndDate = $this->orderDate;
+        $this->refreshOrderHistorySelection();
+    }
+
+    public function orderHistoryHasDateFilter(): bool
+    {
+        return $this->exportStartDate !== '' || $this->exportEndDate !== '';
+    }
+
+    private function refreshOrderHistorySelection(): void
+    {
         $this->selectedOrderId = null;
         unset($this->orderHistory);
     }
@@ -108,12 +138,28 @@ class ActivityHistory extends Component
         $query = Sale::completed()
             ->with(['items' => fn ($query) => $query->orderBy('id'), 'user']);
 
-        if ($this->orderDate !== '') {
+        if ($this->exportStartDate !== '') {
             try {
-                $date = Carbon::createFromFormat('Y-m-d', $this->orderDate);
+                $start = Carbon::createFromFormat('Y-m-d', $this->exportStartDate)->startOfDay();
 
-                if ($date->format('Y-m-d') === $this->orderDate) {
-                    $query->whereDate('created_at', $date);
+                if ($start->format('Y-m-d') === $this->exportStartDate) {
+                    $query->where('created_at', '>=', $start);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            } catch (\Throwable) {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if ($this->exportEndDate !== '') {
+            try {
+                $end = Carbon::createFromFormat('Y-m-d', $this->exportEndDate)->endOfDay();
+
+                if ($end->format('Y-m-d') === $this->exportEndDate) {
+                    $query->where('created_at', '<=', $end);
+                } else {
+                    $query->whereRaw('1 = 0');
                 }
             } catch (\Throwable) {
                 $query->whereRaw('1 = 0');
@@ -122,7 +168,7 @@ class ActivityHistory extends Component
 
         return $query->orderBy('created_at')
             ->orderBy('id')
-            ->limit($this->orderDate !== '' ? 100 : 20)
+            ->limit($this->orderHistoryHasDateFilter() ? 200 : 20)
             ->get();
     }
 
