@@ -6,6 +6,10 @@
 // env() is safe to call, because `config:cache` captures their resolved
 // values at cache-build time.
 return [
+    'operations' => [
+        'cycle_start_day' => (int) env('MCBERTO_OPERATION_CYCLE_START_DAY', 14),
+    ],
+
     'admin' => [
         'name' => env('ADMIN_NAME', 'Bertony Effa'),
         'email' => env('ADMIN_EMAIL', 'owner@mcberto.test'),

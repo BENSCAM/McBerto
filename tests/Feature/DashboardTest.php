@@ -11,11 +11,13 @@ use App\Models\DisciplinarySanction;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\RawMaterial;
+use App\Models\RawMaterialStockMovement;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -131,6 +133,32 @@ class DashboardTest extends TestCase
             ->assertSet('periodAverageTicket', 7500)
             ->assertSet('periodExpenses', 3000)
             ->assertSet('periodNetProfit', 12000);
+    }
+
+    public function test_dashboard_period_kpis_can_use_current_operation_cycle(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-02 10:00:00'));
+
+        $manager = User::factory()->manager()->create();
+
+        Sale::factory()->create(['total_amount' => 10000, 'created_at' => Carbon::parse('2026-08-14 09:00:00')]);
+        Sale::factory()->create(['total_amount' => 5000, 'created_at' => Carbon::parse('2026-09-02 09:00:00')]);
+        Sale::factory()->create(['total_amount' => 99999, 'created_at' => Carbon::parse('2026-08-13 09:00:00')]);
+        Sale::factory()->create(['total_amount' => 88888, 'created_at' => Carbon::parse('2026-09-14 09:00:00')]);
+        Expense::factory()->create(['amount' => 3000, 'expense_date' => '2026-08-20']);
+        Expense::factory()->create(['amount' => 99999, 'expense_date' => '2026-08-13']);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('dashboardPeriod', 'cycle')
+            ->assertSet('periodLabel', '14/08/2026 - 13/09/2026')
+            ->assertSet('periodRevenue', 15000)
+            ->assertSet('periodOrdersCount', 2)
+            ->assertSet('periodAverageTicket', 7500)
+            ->assertSet('periodExpenses', 3000)
+            ->assertSet('periodNetProfit', 12000);
+
+        Carbon::setTestNow();
     }
 
     public function test_dashboard_monthly_kpis_show_payroll_and_real_net_profit(): void
@@ -425,9 +453,80 @@ class DashboardTest extends TestCase
         $this->assertCount(now()->daysInMonth, $month['labels']);
         $this->assertEquals(5000, array_sum($month['values']));
 
+        $component->set('dashboardPeriod', 'cycle');
+        $cycle = $component->instance()->periodBreakdown();
+        $this->assertContains(now()->format('d/m'), $cycle['labels']);
+        $this->assertEquals(5000, array_sum($cycle['values']));
+
         $component->set('dashboardPeriod', 'year');
         $year = $component->instance()->periodBreakdown();
         $this->assertCount(12, $year['labels']);
         $this->assertEquals(5000, array_sum($year['values']));
+    }
+
+    public function test_manager_can_delete_orders_for_a_specific_period_and_restore_consumed_stock(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $cashier = User::factory()->cashier()->create();
+        $material = RawMaterial::create([
+            'name' => 'Pain',
+            'unit' => 'piece',
+            'current_quantity' => 8,
+            'low_stock_threshold' => 2,
+            'average_unit_cost' => 100,
+            'is_active' => true,
+        ]);
+        $sale = Sale::factory()->create([
+            'user_id' => $cashier->id,
+            'total_amount' => 5000,
+            'created_at' => Carbon::parse('2026-09-01 12:00:00'),
+        ]);
+
+        SaleItem::create([
+            'sale_id' => $sale->id,
+            'product_name' => 'Burger',
+            'unit_price' => 2500,
+            'quantity' => 2,
+            'subtotal' => 5000,
+        ]);
+
+        RawMaterialStockMovement::create([
+            'raw_material_id' => $material->id,
+            'user_id' => $cashier->id,
+            'sale_id' => $sale->id,
+            'type' => 'sale_consumption',
+            'quantity_in' => 0,
+            'quantity_out' => 2,
+            'stock_before' => 10,
+            'stock_after' => 8,
+            'unit_cost' => 100,
+            'total_cost' => 200,
+            'reason' => 'Vente '.$sale->receipt_number,
+            'occurred_at' => $sale->created_at,
+        ]);
+
+        CashRegisterClosing::factory()->create([
+            'closing_date' => '2026-09-01',
+            'total_amount' => 5000,
+            'total_orders_count' => 1,
+        ]);
+
+        Sale::factory()->create(['total_amount' => 7000, 'created_at' => Carbon::parse('2026-09-03 12:00:00')]);
+
+        Livewire::actingAs($manager)
+            ->test(Overview::class)
+            ->set('deleteStartDate', '2026-09-01')
+            ->set('deleteEndDate', '2026-09-01')
+            ->set('deleteConfirmation', 'SUPPRIMER')
+            ->call('deleteOrdersForPeriod')
+            ->assertSet('lastDeletedOrders.orders', 1)
+            ->assertSet('lastDeletedOrders.items', 1)
+            ->assertSet('lastDeletedOrders.closings', 1)
+            ->assertSet('lastDeletedOrders.amount', 5000);
+
+        $this->assertDatabaseMissing('sales', ['id' => $sale->id]);
+        $this->assertDatabaseMissing('cash_register_closings', ['closing_date' => '2026-09-01 00:00:00']);
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertSame(10.0, (float) $material->refresh()->current_quantity);
     }
 }
