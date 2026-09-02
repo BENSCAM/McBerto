@@ -65,76 +65,85 @@
             </div>
 
             <div class="mb-4 rounded-md border border-gray-200 dark:border-gray-700 p-3">
-                <div class="flex flex-wrap items-end gap-3">
-                    <div>
-                        <label for="exportStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Exporter du</label>
-                        <input
-                            id="exportStartDate"
-                            type="date"
-                            wire:model.live="exportStartDate"
-                            class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
-                        >
-                    </div>
-                    <div>
-                        <label for="exportEndDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Au</label>
-                        <input
-                            id="exportEndDate"
-                            type="date"
-                            wire:model.live="exportEndDate"
-                            class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
-                        >
-                    </div>
-                    <a
-                        href="{{ $this->orderHistoryPdfUrl() }}"
-                        target="_blank"
-                        class="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-                    >Exporter PDF</a>
-                </div>
-            </div>
-
-            <div class="mb-4 rounded-md border border-red-100 dark:border-red-900 p-3">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div class="font-medium text-gray-800 dark:text-gray-200">Correction des commandes</div>
-                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">Supprime les tickets, lignes de vente et clôtures entre deux dates.</div>
-                    </div>
-
-                    @if ($lastDeletedOrders)
-                        <div class="rounded-md bg-green-50 dark:bg-green-900/30 px-3 py-2 text-sm text-green-800 dark:text-green-100">
-                            {{ $lastDeletedOrders['orders'] }} commande(s), {{ $lastDeletedOrders['items'] }} ligne(s) et {{ $lastDeletedOrders['closings'] }} clôture(s) supprimées.
+                <div class="flex flex-wrap items-end justify-between gap-3">
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label for="exportStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Exporter du</label>
+                            <input
+                                id="exportStartDate"
+                                type="date"
+                                wire:model.live="exportStartDate"
+                                class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                            >
                         </div>
-                    @endif
-                </div>
-
-                <div class="mt-3 grid grid-cols-1 md:grid-cols-[160px_160px_1fr_auto] gap-3 items-end">
-                    <div>
-                        <label for="deleteStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Supprimer du</label>
-                        <input id="deleteStartDate" type="date" wire:model="deleteStartDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
-                        <x-input-error :messages="$errors->get('deleteStartDate')" class="mt-1" />
+                        <div>
+                            <label for="exportEndDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Au</label>
+                            <input
+                                id="exportEndDate"
+                                type="date"
+                                wire:model.live="exportEndDate"
+                                class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm"
+                            >
+                        </div>
+                        <a
+                            href="{{ $this->orderHistoryPdfUrl() }}"
+                            target="_blank"
+                            class="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                        >Exporter PDF</a>
                     </div>
 
-                    <div>
-                        <label for="deleteEndDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Au</label>
-                        <input id="deleteEndDate" type="date" wire:model="deleteEndDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
-                        <x-input-error :messages="$errors->get('deleteEndDate')" class="mt-1" />
-                    </div>
+                    <details class="group relative">
+                        <summary class="list-none cursor-pointer rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-gray-700">
+                            Correction
+                        </summary>
+                        <div class="absolute right-0 z-20 mt-2 w-[min(92vw,560px)] rounded-md border border-red-100 bg-white p-4 shadow-lg dark:border-red-900 dark:bg-gray-800">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <div class="font-medium text-gray-800 dark:text-gray-200">Correction des commandes</div>
+                                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">Supprime les tickets, lignes et clôtures d'une période.</div>
+                                </div>
 
-                    <div>
-                        <label for="deleteConfirmation" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Confirmation</label>
-                        <input id="deleteConfirmation" type="text" wire:model="deleteConfirmation" placeholder="SUPPRIMER" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
-                        <x-input-error :messages="$errors->get('deleteConfirmation')" class="mt-1" />
-                    </div>
+                                @if ($lastDeletedOrders)
+                                    <div class="rounded-md bg-green-50 px-2 py-1 text-xs text-green-800 dark:bg-green-900/30 dark:text-green-100">
+                                        {{ $lastDeletedOrders['orders'] }} commande(s) supprimée(s).
+                                    </div>
+                                @endif
+                            </div>
 
-                    <button
-                        type="button"
-                        x-on:click="$store.confirmModal.open('Supprimer définitivement les commandes de cette période ? Le stock consommé par ces ventes sera remis, et les clôtures de la période seront supprimées.', () => $wire.deleteOrdersForPeriod())"
-                        wire:loading.attr="disabled"
-                        wire:target="deleteOrdersForPeriod"
-                        class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                        <span wire:loading.remove wire:target="deleteOrdersForPeriod">Supprimer</span>
-                        <span wire:loading wire:target="deleteOrdersForPeriod">Suppression...</span>
-                    </button>
+                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label for="deleteStartDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Du</label>
+                                    <input id="deleteStartDate" type="date" wire:model.live="deleteStartDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
+                                    <x-input-error :messages="$errors->get('deleteStartDate')" class="mt-1" />
+                                </div>
+
+                                <div>
+                                    <label for="deleteEndDate" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Au</label>
+                                    <input id="deleteEndDate" type="date" wire:model.live="deleteEndDate" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
+                                    <x-input-error :messages="$errors->get('deleteEndDate')" class="mt-1" />
+                                </div>
+                            </div>
+
+                            <div class="mt-3 flex flex-wrap items-start gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <label for="deleteConfirmation" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tapez SUPPRIMER</label>
+                                    <input id="deleteConfirmation" type="text" wire:model.live="deleteConfirmation" placeholder="SUPPRIMER" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500 text-sm">
+                                    <x-input-error :messages="$errors->get('deleteConfirmation')" class="mt-1" />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    x-on:click="$store.confirmModal.open('Supprimer définitivement les commandes de cette période ? Le stock consommé par ces ventes sera remis, et les clôtures de la période seront supprimées.', () => $wire.deleteOrdersForPeriod())"
+                                    wire:loading.attr="disabled"
+                                    wire:target="deleteOrdersForPeriod"
+                                    class="mt-5 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                                >
+                                    <span wire:loading.remove wire:target="deleteOrdersForPeriod">Supprimer</span>
+                                    <span wire:loading wire:target="deleteOrdersForPeriod">Suppression...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
