@@ -93,52 +93,6 @@
             </div>
         @endif
 
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-red-100 dark:border-red-900 p-5">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <div class="font-medium text-gray-800 dark:text-gray-200">Correction des commandes</div>
-                    <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">Supprime les commandes, lignes de vente et clôtures entre deux dates.</div>
-                </div>
-
-                @if ($lastDeletedOrders)
-                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 px-3 py-2 text-sm text-green-800 dark:text-green-100">
-                        {{ $lastDeletedOrders['orders'] }} commande(s), {{ $lastDeletedOrders['items'] }} ligne(s) et {{ $lastDeletedOrders['closings'] }} clôture(s) supprimées du {{ \Illuminate\Support\Carbon::parse($lastDeletedOrders['start'])->format('d/m/Y') }} au {{ \Illuminate\Support\Carbon::parse($lastDeletedOrders['end'])->format('d/m/Y') }}.
-                    </div>
-                @endif
-            </div>
-
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
-                <div>
-                    <label for="deleteStartDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Début</label>
-                    <input id="deleteStartDate" type="date" wire:model="deleteStartDate" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500">
-                    <x-input-error :messages="$errors->get('deleteStartDate')" class="mt-1" />
-                </div>
-
-                <div>
-                    <label for="deleteEndDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fin</label>
-                    <input id="deleteEndDate" type="date" wire:model="deleteEndDate" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500">
-                    <x-input-error :messages="$errors->get('deleteEndDate')" class="mt-1" />
-                </div>
-
-                <div>
-                    <label for="deleteConfirmation" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirmation</label>
-                    <input id="deleteConfirmation" type="text" wire:model="deleteConfirmation" placeholder="SUPPRIMER" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-brand-500 focus:ring-brand-500">
-                    <x-input-error :messages="$errors->get('deleteConfirmation')" class="mt-1" />
-                </div>
-
-                <button
-                    type="button"
-                    x-on:click="$store.confirmModal.open('Supprimer définitivement les commandes de cette période ? Le stock consommé par ces ventes sera remis, et les clôtures de la période seront supprimées.', () => $wire.deleteOrdersForPeriod())"
-                    wire:loading.attr="disabled"
-                    wire:target="deleteOrdersForPeriod"
-                    class="rounded-md bg-red-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                    <span wire:loading.remove wire:target="deleteOrdersForPeriod">Supprimer</span>
-                    <span wire:loading wire:target="deleteOrdersForPeriod">Suppression...</span>
-                </button>
-            </div>
-        </div>
-
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
                 <div>

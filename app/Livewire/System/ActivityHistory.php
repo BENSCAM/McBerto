@@ -7,6 +7,8 @@ use App\Models\ActivityLog;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\User;
+use App\Models\CashRegisterClosing;
+use App\Models\RawMaterialStockMovement;
 use App\Services\RawMaterialStockService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -32,9 +34,17 @@ class ActivityHistory extends Component
 
     public string $exportEndDate = '';
 
+    public string $deleteStartDate = '';
+
+    public string $deleteEndDate = '';
+
+    public string $deleteConfirmation = '';
+
     public ?int $selectedOrderId = null;
 
     public ?string $orderNotice = null;
+
+    public ?array $lastDeletedOrders = null;
 
     public function mount(): void
     {
@@ -153,6 +163,61 @@ class ActivityHistory extends Component
         unset($this->orderHistory, $this->selectedOrderTicket);
     }
 
+    public function deleteOrdersForPeriod(): void
+    {
+        $this->validate([
+            'deleteStartDate' => ['required', 'date_format:Y-m-d'],
+            'deleteEndDate' => ['required', 'date_format:Y-m-d', 'after_or_equal:deleteStartDate'],
+            'deleteConfirmation' => ['required', 'in:SUPPRIMER'],
+        ], [
+            'deleteStartDate.required' => 'Choisissez la date de début.',
+            'deleteStartDate.date_format' => 'La date de début est invalide.',
+            'deleteEndDate.required' => 'Choisissez la date de fin.',
+            'deleteEndDate.date_format' => 'La date de fin est invalide.',
+            'deleteEndDate.after_or_equal' => 'La date de fin doit être supérieure ou égale à la date de début.',
+            'deleteConfirmation.in' => 'Tapez SUPPRIMER pour confirmer.',
+        ]);
+
+        $start = Carbon::createFromFormat('Y-m-d', $this->deleteStartDate)->startOfDay();
+        $end = Carbon::createFromFormat('Y-m-d', $this->deleteEndDate)->endOfDay();
+
+        $this->lastDeletedOrders = DB::transaction(function () use ($start, $end) {
+            $sales = Sale::completed()
+                ->with(['rawMaterialStockMovements', 'items'])
+                ->whereBetween('created_at', [$start, $end])
+                ->get();
+
+            $saleIds = $sales->pluck('id');
+            $closingCount = $this->cashRegisterClosingsBetween($start, $end)->count();
+            $totalAmount = (int) $sales->sum('total_amount');
+            $ordersCount = $sales->count();
+            $itemsCount = SaleItem::whereIn('sale_id', $saleIds)->count();
+
+            foreach ($sales as $sale) {
+                app(RawMaterialStockService::class)->restoreForCanceledSale($sale, Auth::user());
+            }
+
+            RawMaterialStockMovement::withoutEvents(fn () => RawMaterialStockMovement::whereIn('sale_id', $saleIds)->delete());
+            SaleItem::withoutEvents(fn () => SaleItem::whereIn('sale_id', $saleIds)->delete());
+            Sale::withoutEvents(fn () => Sale::whereIn('id', $saleIds)->delete());
+            CashRegisterClosing::withoutEvents(fn () => $this->cashRegisterClosingsBetween($start, $end)->delete());
+
+            return [
+                'orders' => $ordersCount,
+                'items' => $itemsCount,
+                'closings' => $closingCount,
+                'amount' => $totalAmount,
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+            ];
+        });
+
+        $this->deleteConfirmation = '';
+        $this->selectedOrderId = null;
+        $this->orderNotice = 'Commandes de la période supprimées.';
+        unset($this->orderHistory, $this->selectedOrderTicket);
+    }
+
     public function closeOrderTicket(): void
     {
         $this->selectedOrderId = null;
@@ -192,6 +257,13 @@ class ActivityHistory extends Component
         }
 
         $closing->update($data);
+    }
+
+    private function cashRegisterClosingsBetween(Carbon $start, Carbon $end)
+    {
+        return CashRegisterClosing::query()
+            ->whereDate('closing_date', '>=', $start->toDateString())
+            ->whereDate('closing_date', '<=', $end->toDateString());
     }
 
     public function formatActivityValue(mixed $value): string

@@ -8,13 +8,11 @@ use App\Models\CashRegisterClosing;
 use App\Models\DisciplinarySanction;
 use App\Models\Expense;
 use App\Models\RawMaterial;
-use App\Models\RawMaterialStockMovement;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -24,14 +22,6 @@ class Overview extends Component
     public string $dashboardPeriod = 'day';
 
     public string $period = '7d';
-
-    public string $deleteStartDate = '';
-
-    public string $deleteEndDate = '';
-
-    public string $deleteConfirmation = '';
-
-    public ?array $lastDeletedOrders = null;
 
     public function updatedDashboardPeriod(): void
     {
@@ -441,59 +431,6 @@ class Overview extends Component
         };
     }
 
-    public function deleteOrdersForPeriod(): void
-    {
-        $this->validate([
-            'deleteStartDate' => ['required', 'date_format:Y-m-d'],
-            'deleteEndDate' => ['required', 'date_format:Y-m-d', 'after_or_equal:deleteStartDate'],
-            'deleteConfirmation' => ['required', 'in:SUPPRIMER'],
-        ], [
-            'deleteStartDate.required' => 'Choisissez la date de début.',
-            'deleteStartDate.date_format' => 'La date de début est invalide.',
-            'deleteEndDate.required' => 'Choisissez la date de fin.',
-            'deleteEndDate.date_format' => 'La date de fin est invalide.',
-            'deleteEndDate.after_or_equal' => 'La date de fin doit être supérieure ou égale à la date de début.',
-            'deleteConfirmation.in' => 'Tapez SUPPRIMER pour confirmer.',
-        ]);
-
-        $start = Carbon::createFromFormat('Y-m-d', $this->deleteStartDate)->startOfDay();
-        $end = Carbon::createFromFormat('Y-m-d', $this->deleteEndDate)->endOfDay();
-
-        $this->lastDeletedOrders = DB::transaction(function () use ($start, $end) {
-            $sales = Sale::query()
-                ->with('rawMaterialStockMovements')
-                ->whereBetween('created_at', [$start, $end])
-                ->get();
-
-            $saleIds = $sales->pluck('id');
-            $closingCount = $this->cashRegisterClosingsBetween($start, $end)->count();
-            $totalAmount = (int) $sales->sum('total_amount');
-            $ordersCount = $sales->count();
-            $itemsCount = SaleItem::whereIn('sale_id', $saleIds)->count();
-
-            foreach ($sales->where('sale_status', SaleStatus::Completed) as $sale) {
-                $this->restoreStockConsumedBySale($sale);
-            }
-
-            RawMaterialStockMovement::withoutEvents(fn () => RawMaterialStockMovement::whereIn('sale_id', $saleIds)->delete());
-            SaleItem::withoutEvents(fn () => SaleItem::whereIn('sale_id', $saleIds)->delete());
-            Sale::withoutEvents(fn () => Sale::whereIn('id', $saleIds)->delete());
-            CashRegisterClosing::withoutEvents(fn () => $this->cashRegisterClosingsBetween($start, $end)->delete());
-
-            return [
-                'orders' => $ordersCount,
-                'items' => $itemsCount,
-                'closings' => $closingCount,
-                'amount' => $totalAmount,
-                'start' => $start->toDateString(),
-                'end' => $end->toDateString(),
-            ];
-        });
-
-        $this->deleteConfirmation = '';
-        unset($this->todayClosing);
-    }
-
     protected function periodStart(): Carbon
     {
         return match ($this->period) {
@@ -521,24 +458,6 @@ class Overview extends Component
             'year' => [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
             default => [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
         };
-    }
-
-    protected function restoreStockConsumedBySale(Sale $sale): void
-    {
-        $movements = $sale->rawMaterialStockMovements
-            ->where('type', 'sale_consumption');
-
-        foreach ($movements as $movement) {
-            $material = RawMaterial::whereKey($movement->raw_material_id)->lockForUpdate()->first();
-
-            if (! $material) {
-                continue;
-            }
-
-            $material->update([
-                'current_quantity' => (float) $material->current_quantity + (float) $movement->quantity_out,
-            ]);
-        }
     }
 
     protected function operationCycleRange(Carbon $date): array
