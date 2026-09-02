@@ -1,4 +1,4 @@
-<div class="py-8" wire:poll.visible.10s>
+<div class="py-8">
     <div class="w-full px-4 sm:px-6 lg:px-8 space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
