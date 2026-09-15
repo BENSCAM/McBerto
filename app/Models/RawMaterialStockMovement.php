@@ -12,6 +12,7 @@ class RawMaterialStockMovement extends Model
 
     public const TYPES = [
         'purchase' => 'Achat',
+        'chicken_supply' => 'Approvisionnement poulet',
         'sale_consumption' => 'Consommation vente',
         'sale_cancellation' => 'Annulation vente',
         'adjustment' => 'Ajustement manuel',

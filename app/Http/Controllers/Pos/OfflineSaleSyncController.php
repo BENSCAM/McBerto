@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OfflineSaleSyncController extends Controller
 {
@@ -118,45 +119,55 @@ class OfflineSaleSyncController extends Controller
 
             $priceWarnings = $this->priceWarnings($payload);
 
-            $sale = DB::transaction(function () use ($payload, $createdAt, $hasOfflineReferenceColumn) {
-                $saleData = [
-                    'receipt_number' => Sale::nextReceiptNumber($createdAt),
+            try {
+                $sale = DB::transaction(function () use ($payload, $createdAt, $hasOfflineReferenceColumn) {
+                    $saleData = [
+                        'receipt_number' => Sale::nextReceiptNumber($createdAt),
+                        'offline_uuid' => $payload['offline_uuid'],
+                        'user_id' => Auth::id(),
+                        'payment_method' => PaymentMethod::from($payload['payment_method']),
+                        'service_area' => ServiceArea::from($payload['service_area']),
+                        'sale_status' => SaleStatus::Completed,
+                        'total_amount' => (int) $payload['total_amount'],
+                        'amount_given' => $payload['amount_given'],
+                        'change_due' => $payload['change_due'],
+                    ];
+
+                    if ($hasOfflineReferenceColumn) {
+                        $saleData['offline_reference'] = $payload['offline_reference'] ?? null;
+                    }
+
+                    $sale = new Sale($saleData);
+                    $sale->created_at = $createdAt;
+                    $sale->updated_at = now();
+                    $sale->save();
+
+                    foreach ($payload['items'] as $item) {
+                        $product = Product::find($item['product_id']);
+
+                        SaleItem::create([
+                            'sale_id' => $sale->id,
+                            'product_id' => $product?->id,
+                            'product_name' => $item['product_name'],
+                            'unit_price' => (int) $item['unit_price'],
+                            'quantity' => (int) $item['quantity'],
+                            'subtotal' => (int) $item['subtotal'],
+                        ]);
+                    }
+
+                    app(RawMaterialStockService::class)->consumeForSale($sale);
+
+                    return $sale;
+                });
+            } catch (ValidationException $exception) {
+                $failed[] = [
                     'offline_uuid' => $payload['offline_uuid'],
-                    'user_id' => Auth::id(),
-                    'payment_method' => PaymentMethod::from($payload['payment_method']),
-                    'service_area' => ServiceArea::from($payload['service_area']),
-                    'sale_status' => SaleStatus::Completed,
-                    'total_amount' => (int) $payload['total_amount'],
-                    'amount_given' => $payload['amount_given'],
-                    'change_due' => $payload['change_due'],
+                    'message' => collect($exception->errors())->flatten()->first()
+                        ?? 'Stock insuffisant pour enregistrer cette vente.',
                 ];
 
-                if ($hasOfflineReferenceColumn) {
-                    $saleData['offline_reference'] = $payload['offline_reference'] ?? null;
-                }
-
-                $sale = new Sale($saleData);
-                $sale->created_at = $createdAt;
-                $sale->updated_at = now();
-                $sale->save();
-
-                foreach ($payload['items'] as $item) {
-                    $product = Product::find($item['product_id']);
-
-                    SaleItem::create([
-                        'sale_id' => $sale->id,
-                        'product_id' => $product?->id,
-                        'product_name' => $item['product_name'],
-                        'unit_price' => (int) $item['unit_price'],
-                        'quantity' => (int) $item['quantity'],
-                        'subtotal' => (int) $item['subtotal'],
-                    ]);
-                }
-
-                app(RawMaterialStockService::class)->consumeForSale($sale);
-
-                return $sale;
-            });
+                continue;
+            }
 
             $synced[] = [
                 'offline_uuid' => $payload['offline_uuid'],

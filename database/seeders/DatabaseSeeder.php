@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Enums\UserRole;
 use App\Enums\ServiceArea;
+use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -33,6 +33,8 @@ class DatabaseSeeder extends Seeder
         );
 
         $catalog = $this->seedCatalog();
+
+        $this->call(ChickenStockConfigurationSeeder::class);
 
         if (app()->environment('local')) {
             $this->seedDemoData($owner, $catalog);

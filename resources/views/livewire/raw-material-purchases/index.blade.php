@@ -2,6 +2,7 @@
 
 use App\Models\RawMaterial;
 use App\Models\RawMaterialPurchase;
+use App\Services\ChickenStockService;
 use App\Services\RawMaterialStockService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -33,9 +34,25 @@ new #[Layout('layouts.app')] class extends Component
 
     public ?string $notice = null;
 
+    #[Validate('required|integer|min:1')]
+    public string $chicken_count = '1';
+
+    #[Validate('required|integer|min:1')]
+    public string $chicken_total_price = '';
+
+    #[Validate('nullable|string|max:150')]
+    public string $chicken_supplier = '';
+
+    #[Validate('required|date')]
+    public string $chicken_purchase_date = '';
+
+    #[Validate('nullable|string|max:500')]
+    public string $chicken_note = '';
+
     public function mount(): void
     {
         $this->purchase_date = now()->toDateString();
+        $this->chicken_purchase_date = now()->toDateString();
     }
 
     public function materials()
@@ -65,6 +82,31 @@ new #[Layout('layouts.app')] class extends Component
         $this->purchase_date = now()->toDateString();
         $this->notice = 'Achat enregistré et stock mis à jour.';
     }
+
+    public function recordChickenBatch(ChickenStockService $chickenStockService): void
+    {
+        $this->validateOnly('chicken_count');
+        $this->validateOnly('chicken_total_price');
+        $this->validateOnly('chicken_supplier');
+        $this->validateOnly('chicken_purchase_date');
+        $this->validateOnly('chicken_note');
+
+        $count = (int) $this->chicken_count;
+
+        $chickenStockService->recordBatch([
+            'chickens' => $count,
+            'total_price' => (int) $this->chicken_total_price,
+            'supplier' => $this->chicken_supplier ?: null,
+            'purchase_date' => $this->chicken_purchase_date,
+            'note' => $this->chicken_note ?: null,
+        ], Auth::user());
+
+        $this->reset(['chicken_total_price', 'chicken_supplier', 'chicken_note']);
+        $this->chicken_count = '1';
+        $this->chicken_purchase_date = now()->toDateString();
+        $this->notice = $count.' poulet(s) enregistré(s) : '.($count * 12).' morceaux à paner et '.($count * 15).' steaks ajoutés au stock.';
+        $this->resetPage();
+    }
 }; ?>
 
 <div class="py-8">
@@ -77,6 +119,46 @@ new #[Layout('layouts.app')] class extends Component
         @if ($notice)
             <div class="rounded-md bg-blue-50 dark:bg-blue-900 p-3 text-blue-800 dark:text-blue-100 text-sm">{{ $notice }}</div>
         @endif
+
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-amber-200 dark:border-amber-800">
+            <div class="px-6 py-4 border-b border-amber-100 dark:border-amber-800">
+                <h3 class="font-medium text-gray-900 dark:text-gray-100">Approvisionnement poulet</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Chaque poulet ajoute automatiquement 12 morceaux à paner et 15 steaks de poulet.</p>
+            </div>
+            <form wire:submit="recordChickenBatch" class="p-6 space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <x-input-label for="chicken_count" value="Nombre de poulets" />
+                        <x-text-input wire:model.live="chicken_count" id="chicken_count" class="block mt-1 w-full" type="number" min="1" step="1" required />
+                        <x-input-error :messages="$errors->get('chicken_count')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="chicken_total_price" value="Coût total des poulets (FCFA)" />
+                        <x-text-input wire:model="chicken_total_price" id="chicken_total_price" class="block mt-1 w-full" type="number" min="1" required />
+                        <x-input-error :messages="$errors->get('chicken_total_price')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="chicken_purchase_date" value="Date" />
+                        <x-text-input wire:model="chicken_purchase_date" id="chicken_purchase_date" class="block mt-1 w-full" type="date" required />
+                        <x-input-error :messages="$errors->get('chicken_purchase_date')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label for="chicken_supplier" value="Fournisseur" />
+                        <x-text-input wire:model="chicken_supplier" id="chicken_supplier" class="block mt-1 w-full" type="text" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div>
+                        <x-input-label for="chicken_note" value="Note" />
+                        <x-text-input wire:model="chicken_note" id="chicken_note" class="block mt-1 w-full" type="text" />
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                        Rendement prévu : <strong>{{ max(1, (int) $chicken_count) * 12 }} morceaux</strong> + <strong>{{ max(1, (int) $chicken_count) * 15 }} steaks</strong>
+                    </div>
+                </div>
+                <x-primary-button>Enregistrer les poulets</x-primary-button>
+            </form>
+        </div>
 
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">

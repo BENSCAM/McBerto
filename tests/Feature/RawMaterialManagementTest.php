@@ -11,8 +11,12 @@ use App\Models\Product;
 use App\Models\ProductRecipe;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialPurchase;
+use App\Models\RawMaterialStockMovement;
+use App\Models\Sale;
 use App\Models\User;
+use App\Services\ChickenStockService;
 use App\Services\RawMaterialStockService;
+use Database\Seeders\ChickenStockConfigurationSeeder;
 use Database\Seeders\McBertoInitialRawMaterialsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -68,6 +72,144 @@ class RawMaterialManagementTest extends TestCase
             'raw_material_id' => $material->id,
             'type' => 'purchase',
             'total_cost' => 3000,
+        ]);
+    }
+
+    public function test_chicken_batch_creates_twelve_breaded_pieces_and_fifteen_steaks_per_chicken(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        app(ChickenStockService::class)->recordBatch([
+            'chickens' => 2,
+            'total_price' => 10_000,
+            'supplier' => 'Marché central',
+            'purchase_date' => now()->toDateString(),
+        ], $manager);
+
+        $this->assertSame(24.0, (float) RawMaterial::where('name', ChickenStockService::BREADED_PIECES_MATERIAL)->value('current_quantity'));
+        $this->assertSame(30.0, (float) RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->value('current_quantity'));
+        $this->assertSame(10_000, (int) RawMaterialPurchase::sum('total_price'));
+        $this->assertDatabaseCount('raw_material_purchases', 2);
+        $this->assertDatabaseCount('raw_material_stock_movements', 2);
+    }
+
+    public function test_one_chicken_creates_exactly_twelve_breaded_pieces_and_fifteen_steaks(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        app(ChickenStockService::class)->recordBatch([
+            'chickens' => 1,
+            'total_price' => 5500,
+            'purchase_date' => now()->toDateString(),
+        ], $manager);
+
+        $this->assertSame(12.0, (float) RawMaterial::where('name', ChickenStockService::BREADED_PIECES_MATERIAL)->value('current_quantity'));
+        $this->assertSame(15.0, (float) RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->value('current_quantity'));
+        $this->assertSame(2, RawMaterialStockMovement::where('type', 'chicken_supply')->count());
+    }
+
+    public function test_manager_can_record_a_chicken_batch_from_purchase_page(): void
+    {
+        $manager = User::factory()->manager()->create();
+
+        Livewire::actingAs($manager)
+            ->test('raw-material-purchases.index')
+            ->set('chicken_count', '1')
+            ->set('chicken_total_price', '5000')
+            ->set('chicken_purchase_date', now()->toDateString())
+            ->call('recordChickenBatch')
+            ->assertSee('12 morceaux')
+            ->assertSee('15 steaks');
+
+        $this->assertSame(12.0, (float) RawMaterial::where('name', ChickenStockService::BREADED_PIECES_MATERIAL)->value('current_quantity'));
+        $this->assertSame(15.0, (float) RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->value('current_quantity'));
+    }
+
+    public function test_chicken_configuration_assigns_the_expected_steaks_to_burger_recipes(): void
+    {
+        $category = Category::factory()->create();
+        $oneSteak = Product::factory()->create(['category_id' => $category->id, 'name' => 'Berto Beef Chicken']);
+        $twoSteaks = Product::factory()->create(['category_id' => $category->id, 'name' => 'Big Berto Chicken']);
+        $doubleCheese = Product::factory()->create(['category_id' => $category->id, 'name' => 'Double Cheese Chicken']);
+        $breadedChicken = Product::factory()->create(['category_id' => $category->id, 'name' => 'Poulet Pané (3 pièces)']);
+
+        $this->seed(ChickenStockConfigurationSeeder::class);
+
+        $steaks = RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->firstOrFail();
+        $breadedPieces = RawMaterial::where('name', ChickenStockService::BREADED_PIECES_MATERIAL)->firstOrFail();
+
+        $this->assertDatabaseHas('product_recipes', ['product_id' => $oneSteak->id, 'raw_material_id' => $steaks->id, 'quantity' => 1]);
+        $this->assertDatabaseHas('product_recipes', ['product_id' => $twoSteaks->id, 'raw_material_id' => $steaks->id, 'quantity' => 2]);
+        $this->assertDatabaseHas('product_recipes', ['product_id' => $doubleCheese->id, 'raw_material_id' => $steaks->id, 'quantity' => 2]);
+        $this->assertDatabaseHas('product_recipes', ['product_id' => $breadedChicken->id, 'raw_material_id' => $breadedPieces->id, 'quantity' => 3]);
+    }
+
+    public function test_chicken_configuration_is_idempotent_and_supports_both_double_cheese_spellings(): void
+    {
+        $category = Category::factory()->create();
+        Product::factory()->create(['category_id' => $category->id, 'name' => 'Double Chees Chicken']);
+        Product::factory()->create(['category_id' => $category->id, 'name' => 'Menu Poulet Pané']);
+
+        $this->seed(ChickenStockConfigurationSeeder::class);
+        $this->seed(ChickenStockConfigurationSeeder::class);
+
+        $this->assertSame(2, RawMaterial::whereIn('name', [
+            ChickenStockService::BREADED_PIECES_MATERIAL,
+            ChickenStockService::CHICKEN_STEAKS_MATERIAL,
+        ])->count());
+        $this->assertSame(2, ProductRecipe::count());
+    }
+
+    public function test_chicken_products_consume_one_steak_two_steaks_and_three_breaded_pieces(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $category = Category::factory()->create();
+        $oneSteak = Product::factory()->create(['category_id' => $category->id, 'name' => 'Berto Beef Chicken', 'price' => 1500]);
+        $twoSteaks = Product::factory()->create(['category_id' => $category->id, 'name' => 'Big Berto Chicken', 'price' => 2000]);
+        $breaded = Product::factory()->create(['category_id' => $category->id, 'name' => 'Menu Poulet Pané', 'price' => 2500]);
+        $this->seed(ChickenStockConfigurationSeeder::class);
+        $manager = User::factory()->manager()->create();
+        app(ChickenStockService::class)->recordBatch([
+            'chickens' => 1,
+            'total_price' => 5000,
+            'purchase_date' => now()->toDateString(),
+        ], $manager);
+
+        Livewire::actingAs($cashier)->test(Terminal::class)->call('completeClientSale', [
+            ['product_id' => $oneSteak->id, 'quantity' => 1],
+            ['product_id' => $twoSteaks->id, 'quantity' => 1],
+            ['product_id' => $breaded->id, 'quantity' => 1],
+        ], 'cash', 6000, 0);
+
+        $this->assertSame(12.0, (float) RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->value('current_quantity'));
+        $this->assertSame(9.0, (float) RawMaterial::where('name', ChickenStockService::BREADED_PIECES_MATERIAL)->value('current_quantity'));
+        $this->assertDatabaseHas('raw_material_stock_movements', ['product_id' => $oneSteak->id, 'quantity_out' => 1]);
+        $this->assertDatabaseHas('raw_material_stock_movements', ['product_id' => $twoSteaks->id, 'quantity_out' => 2]);
+        $this->assertDatabaseHas('raw_material_stock_movements', ['product_id' => $breaded->id, 'quantity_out' => 3]);
+    }
+
+    public function test_canceling_a_chicken_product_sale_restores_consumed_stock_once(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $product = Product::factory()->create(['name' => 'Big Berto Chicken', 'price' => 2000]);
+        $this->seed(ChickenStockConfigurationSeeder::class);
+        app(ChickenStockService::class)->recordBatch([
+            'chickens' => 1,
+            'total_price' => 5000,
+            'purchase_date' => now()->toDateString(),
+        ], $manager);
+
+        $terminal = Livewire::actingAs($manager)->test(Terminal::class)
+            ->call('completeClientSale', [['product_id' => $product->id, 'quantity' => 1]], 'cash', 2000, 0);
+        $sale = Sale::latest('id')->firstOrFail();
+        $terminal->call('cancelSale', $sale->id, 'Erreur de saisie');
+
+        $steaks = RawMaterial::where('name', ChickenStockService::CHICKEN_STEAKS_MATERIAL)->firstOrFail();
+        $this->assertSame(15.0, (float) $steaks->current_quantity);
+        $this->assertDatabaseHas('raw_material_stock_movements', [
+            'sale_id' => $sale->id,
+            'type' => 'sale_cancellation',
+            'quantity_in' => 2,
         ]);
     }
 

@@ -47,14 +47,14 @@ class RawMaterialStockService
                 'raw_material_id' => $material->id,
                 'user_id' => $user->id,
                 'raw_material_purchase_id' => $purchase->id,
-                'type' => 'purchase',
+                'type' => $data['movement_type'] ?? 'purchase',
                 'quantity_in' => $quantity,
                 'quantity_out' => 0,
                 'stock_before' => $stockBefore,
                 'stock_after' => $stockAfter,
                 'unit_cost' => $unitPrice,
                 'total_cost' => $totalPrice,
-                'reason' => 'Achat matière première',
+                'reason' => $data['movement_reason'] ?? 'Achat matière première',
                 'occurred_at' => $purchase->purchase_date->endOfDay(),
             ]);
 
@@ -127,6 +127,16 @@ class RawMaterialStockService
 
     public function restoreForCanceledSale(Sale $sale, User $user): void
     {
+        // An annulment may be requested from more than one screen. Never
+        // restore the same sale twice, even if two requests arrive together.
+        if (RawMaterialStockMovement::query()
+            ->where('sale_id', $sale->id)
+            ->where('type', 'sale_cancellation')
+            ->lockForUpdate()
+            ->exists()) {
+            return;
+        }
+
         $movements = RawMaterialStockMovement::query()
             ->where('sale_id', $sale->id)
             ->where('type', 'sale_consumption')

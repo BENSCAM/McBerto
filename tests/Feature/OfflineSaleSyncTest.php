@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\CashRegisterClosing;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductRecipe;
+use App\Models\RawMaterial;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,6 +78,49 @@ class OfflineSaleSyncTest extends TestCase
             'user_id' => $cashier->id,
             'action' => 'offline_sync',
         ]);
+    }
+
+    public function test_offline_sale_with_insufficient_stock_is_reported_and_rolled_back(): void
+    {
+        $cashier = User::factory()->cashier()->create();
+        $product = Product::factory()->create(['name' => 'Big Berto Chicken', 'price' => 2000]);
+        $steaks = RawMaterial::create([
+            'name' => 'Steaks de poulet',
+            'unit' => 'piece',
+            'current_quantity' => 1,
+            'low_stock_threshold' => 2,
+            'average_unit_cost' => 100,
+        ]);
+        ProductRecipe::create([
+            'product_id' => $product->id,
+            'raw_material_id' => $steaks->id,
+            'quantity' => 2,
+        ]);
+
+        $response = $this->actingAs($cashier)->postJson(route('pos.offline-sales.sync'), [
+            'sales' => [[
+                'offline_uuid' => 'offline-sale-no-chicken-stock',
+                'created_at' => now()->toISOString(),
+                'payment_method' => 'cash',
+                'service_area' => 'standard',
+                'total_amount' => 2000,
+                'amount_given' => 2000,
+                'change_due' => 0,
+                'items' => [[
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'unit_price' => 2000,
+                    'quantity' => 1,
+                    'subtotal' => 2000,
+                ]],
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('failed.0.offline_uuid', 'offline-sale-no-chicken-stock')
+            ->assertJsonPath('failed.0.message', 'Stock insuffisant pour Steaks de poulet.');
+        $this->assertDatabaseMissing('sales', ['offline_uuid' => 'offline-sale-no-chicken-stock']);
+        $this->assertSame(1.0, (float) $steaks->fresh()->current_quantity);
     }
 
     public function test_offline_sync_keeps_offline_price_and_reports_warning_when_server_price_changed(): void

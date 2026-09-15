@@ -157,7 +157,9 @@ new #[Layout('layouts.app')] class extends Component
                         <tr>
                             <th class="px-6 py-3">Matière</th>
                             <th class="px-6 py-3">Stock</th>
+                            <th class="px-6 py-3">Seuil d'alerte</th>
                             <th class="px-6 py-3">Coût moyen</th>
+                            <th class="px-6 py-3">État du stock</th>
                             <th class="px-6 py-3">Statut</th>
                             <th class="px-6 py-3"></th>
                         </tr>
@@ -169,7 +171,19 @@ new #[Layout('layouts.app')] class extends Component
                                 <td class="px-6 py-3 {{ $material->isLowStock() ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-gray-600 dark:text-gray-400' }}">
                                     {{ number_format((float) $material->current_quantity, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$material->unit] }}
                                 </td>
+                                <td class="px-6 py-3 text-gray-600 dark:text-gray-400">
+                                    {{ number_format((float) $material->low_stock_threshold, 3, ',', ' ') }} {{ \App\Models\RawMaterial::UNITS[$material->unit] }}
+                                </td>
                                 <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ number_format((float) $material->average_unit_cost, 2, ',', ' ') }} FCFA</td>
+                                <td class="px-6 py-3">
+                                    @if ((float) $material->current_quantity <= 0)
+                                        <span class="inline-flex rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900 dark:text-red-100">Rupture</span>
+                                    @elseif ($material->isLowStock())
+                                        <span class="inline-flex rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-100">Stock bas</span>
+                                    @else
+                                        <span class="inline-flex rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-100">Disponible</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-3">
                                     <button wire:click="toggleActive({{ $material->id }})" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $material->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300' }}">
                                         {{ $material->is_active ? 'Actif' : 'Inactif' }}
@@ -180,7 +194,7 @@ new #[Layout('layouts.app')] class extends Component
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière première.</td></tr>
+                            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Aucune matière première.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
