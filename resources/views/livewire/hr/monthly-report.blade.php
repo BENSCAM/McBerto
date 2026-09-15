@@ -3,7 +3,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Rapport RH mensuel</h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Présences, retards, absences, sanctions et salaire net estimé.</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Présences, retards, absences, sanctions et suivi des salaires payés.</p>
             </div>
 
             <div class="flex flex-wrap gap-2">
@@ -16,7 +16,19 @@
             <div class="rounded-md bg-blue-50 dark:bg-blue-900 p-3 text-blue-800 dark:text-blue-100 text-sm">{{ $notice }}</div>
         @endif
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <x-input-error :messages="$errors->get('payment')" />
+        <x-input-error :messages="$errors->get('month')" />
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                <div class="text-sm text-gray-500 dark:text-gray-400">Masse salariale nette</div>
+                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($dashboard['total_net_salary'], 0, ',', ' ') }} FCFA</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                <div class="text-sm text-gray-500 dark:text-gray-400">Salaires payés</div>
+                <div class="mt-1 text-2xl font-semibold text-green-600 dark:text-green-300">{{ number_format($dashboard['total_paid'], 0, ',', ' ') }} FCFA</div>
+                <div class="mt-1 text-xs text-gray-500">{{ $dashboard['paid_count'] }} payé(s) · {{ $dashboard['unpaid_count'] }} en attente</div>
+            </div>
             <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-100 dark:border-gray-700 p-5">
                 <div class="text-sm text-gray-500 dark:text-gray-400">Retenues du mois</div>
                 <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ number_format($dashboard['total_deductions'], 0, ',', ' ') }} FCFA</div>
@@ -74,6 +86,7 @@
                             <th class="px-6 py-3">Abandons</th>
                             <th class="px-6 py-3">Retenues</th>
                             <th class="px-6 py-3">Salaire net estimé</th>
+                            <th class="px-6 py-3">Paiement</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -92,10 +105,33 @@
                                     {{ number_format($row['net_salary'], 0, ',', ' ') }} FCFA
                                     <div class="text-xs font-normal text-gray-500">Brut {{ number_format($row['gross_salary'], 0, ',', ' ') }} FCFA</div>
                                 </td>
+                                <td class="px-6 py-4 text-sm whitespace-nowrap">
+                                    @if ($row['is_paid'])
+                                        <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-100">Payé</span>
+                                        <div class="mt-1 text-xs text-gray-500">
+                                            {{ number_format($row['paid_net_salary'], 0, ',', ' ') }} FCFA<br>
+                                            le {{ $row['paid_at']->format('d/m/Y à H:i') }}
+                                            @if ($row['paid_by_name'])
+                                                par {{ $row['paid_by_name'] }}
+                                            @endif
+                                        </div>
+                                    @else
+                                        @php
+                                            $paymentConfirmation = "Confirmer le paiement de ".number_format($row['net_salary'], 0, ',', ' ')." FCFA à {$row['name']} pour le mois sélectionné ?";
+                                        @endphp
+                                        <button
+                                            type="button"
+                                            x-on:click="$store.confirmModal.open(@js($paymentConfirmation), () => $wire.markSalaryPaid('{{ $row['type'] }}', {{ $row['id'] }}))"
+                                            wire:loading.attr="disabled"
+                                            wire:target="markSalaryPaid('{{ $row['type'] }}', {{ $row['id'] }})"
+                                            class="inline-flex items-center rounded-md border border-green-200 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50 disabled:opacity-50 dark:border-green-800 dark:text-green-300 dark:hover:bg-gray-700"
+                                        >Marquer payé</button>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Aucun employé actif.</td>
+                                <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Aucun employé actif.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -4,10 +4,13 @@ namespace App\Livewire\Hr;
 
 use App\Models\DisciplinarySanction;
 use App\Models\HrSetting;
+use App\Models\SalaryPayment;
 use App\Models\StaffAttendance;
 use App\Models\StaffMember;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -56,12 +59,20 @@ class MonthlyReport extends Component
 
     public function reportRows(): array
     {
+        [$start] = $this->period();
+        $payments = SalaryPayment::query()
+            ->with('paidBy')
+            ->whereDate('payroll_month', $start->toDateString())
+            ->get()
+            ->keyBy(fn (SalaryPayment $payment) => "{$payment->employee_type}:{$payment->employee_id}");
+
         return collect($this->employees())
-            ->map(function (array $employee) {
+            ->map(function (array $employee) use ($payments) {
                 $attendances = $this->attendancesFor($employee['type'], $employee['id']);
                 $validatedSanctions = $this->sanctionsFor($employee['type'], $employee['id']);
                 $deductions = (int) $validatedSanctions->sum('deduction_amount');
                 $salary = (int) $employee['salary'];
+                $payment = $payments->get("{$employee['type']}:{$employee['id']}");
 
                 return [
                     ...$employee,
@@ -75,6 +86,11 @@ class MonthlyReport extends Component
                     'gross_salary' => $salary,
                     'net_salary' => max(0, $salary - $deductions),
                     'sanctions' => $validatedSanctions,
+                    'is_paid' => $payment !== null,
+                    'payment_id' => $payment?->id,
+                    'paid_net_salary' => $payment?->net_salary,
+                    'paid_at' => $payment?->paid_at,
+                    'paid_by_name' => $payment?->paidBy?->name,
                 ];
             })
             ->values()
@@ -87,12 +103,56 @@ class MonthlyReport extends Component
 
         return [
             'total_deductions' => (int) $rows->sum('deductions'),
+            'total_net_salary' => (int) $rows->sum('net_salary'),
+            'total_paid' => (int) $rows->where('is_paid', true)->sum('paid_net_salary'),
+            'paid_count' => $rows->where('is_paid', true)->count(),
+            'unpaid_count' => $rows->where('is_paid', false)->count(),
             'late_total' => (int) $rows->sum('late_count'),
             'unjustified_absences' => (int) $rows->sum('unjustified_absences'),
             'abandonments' => (int) $rows->sum('abandonments'),
             'most_punctual' => $rows->where('late_count', 0)->where('unjustified_absences', 0)->sortByDesc('present_days')->take(3)->values(),
             'most_late' => $rows->sortByDesc('late_count')->take(3)->values(),
         ];
+    }
+
+    public function markSalaryPaid(string $employeeType, int $employeeId): void
+    {
+        if (! in_array($employeeType, ['user', 'staff'], true)) {
+            throw ValidationException::withMessages(['payment' => 'Employé invalide.']);
+        }
+
+        $this->validate([
+            'month' => ['required', 'date_format:Y-m'],
+        ]);
+
+        $row = collect($this->reportRows())->first(
+            fn (array $row) => $row['type'] === $employeeType && $row['id'] === $employeeId
+        );
+
+        if (! $row) {
+            throw ValidationException::withMessages(['payment' => 'Employé introuvable.']);
+        }
+
+        if ($row['is_paid']) {
+            $this->notice = "Le salaire de {$row['name']} est déjà marqué comme payé pour ce mois.";
+
+            return;
+        }
+
+        [$start] = $this->period();
+
+        SalaryPayment::create([
+            'employee_type' => $employeeType,
+            'employee_id' => $employeeId,
+            'payroll_month' => $start->toDateString(),
+            'gross_salary' => $row['gross_salary'],
+            'deduction_amount' => $row['deductions'],
+            'net_salary' => $row['net_salary'],
+            'paid_at' => now(),
+            'paid_by' => Auth::id(),
+        ]);
+
+        $this->notice = "Salaire de {$row['name']} marqué comme payé pour {$start->format('m/Y')}.";
     }
 
     protected function employees(): array

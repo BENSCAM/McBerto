@@ -7,6 +7,7 @@ use App\Livewire\Hr\DisciplineHistory;
 use App\Livewire\Hr\MonthlyReport;
 use App\Models\DisciplinarySanction;
 use App\Models\HrSetting;
+use App\Models\SalaryPayment;
 use App\Models\StaffAttendance;
 use App\Models\StaffMember;
 use App\Models\User;
@@ -166,5 +167,65 @@ class HrManagementTest extends TestCase
         $this->assertSame(30, $row['late_minutes']);
         $this->assertSame(10000, $row['deductions']);
         $this->assertSame(250000, $row['net_salary']);
+    }
+
+    public function test_manager_can_mark_an_employee_salary_as_paid_for_a_specific_month(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $employee = User::factory()->cashier()->create([
+            'name' => 'Caissier Payé',
+            'monthly_salary' => 260000,
+        ]);
+
+        DisciplinarySanction::create([
+            'employee_type' => 'user',
+            'employee_id' => $employee->id,
+            'fault_type' => 'late',
+            'description' => 'Retard sanctionné',
+            'fault_date' => '2026-08-24',
+            'sanction_type' => 'salary_deduction',
+            'deduction_amount' => 10000,
+            'responsible_id' => $manager->id,
+            'status' => 'validated',
+            'validated_at' => now(),
+        ]);
+
+        $component = Livewire::actingAs($manager)
+            ->test(MonthlyReport::class)
+            ->set('month', '2026-08')
+            ->call('markSalaryPaid', 'user', $employee->id)
+            ->assertSet('notice', 'Salaire de Caissier Payé marqué comme payé pour 08/2026.');
+
+        $payment = SalaryPayment::firstOrFail();
+
+        $this->assertSame('2026-08-01', $payment->payroll_month->toDateString());
+        $this->assertSame(260000, $payment->gross_salary);
+        $this->assertSame(10000, $payment->deduction_amount);
+        $this->assertSame(250000, $payment->net_salary);
+        $this->assertSame($manager->id, $payment->paid_by);
+
+        $row = collect($component->instance()->reportRows())->firstWhere('name', 'Caissier Payé');
+
+        $this->assertTrue($row['is_paid']);
+        $this->assertSame(250000, $row['paid_net_salary']);
+        $this->assertSame($manager->name, $row['paid_by_name']);
+    }
+
+    public function test_a_salary_cannot_be_marked_as_paid_twice_for_the_same_month(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $employee = User::factory()->cashier()->create([
+            'name' => 'Employé Unique',
+            'monthly_salary' => 150000,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(MonthlyReport::class)
+            ->set('month', '2026-08')
+            ->call('markSalaryPaid', 'user', $employee->id)
+            ->call('markSalaryPaid', 'user', $employee->id)
+            ->assertSet('notice', 'Le salaire de Employé Unique est déjà marqué comme payé pour ce mois.');
+
+        $this->assertDatabaseCount('salary_payments', 1);
     }
 }
